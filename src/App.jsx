@@ -474,14 +474,6 @@ export default function App() {
               </button>
             </form>
 
-            <div className="mt-6 pt-6 border-t border-slate-800 text-center">
-              <button
-                onClick={handleDemoSignIn}
-                className="text-xs text-amber-400/80 hover:text-amber-400 underline transition"
-              >
-                Quick Demo Sign In (Skip Registration)
-              </button>
-            </div>
           </div>
           
           <div className="mt-6 text-center text-xs text-slate-500">
