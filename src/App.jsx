@@ -643,15 +643,16 @@ export default function App() {
                         </div>
 
                         {/* User Avatar & Name */}
-                      <div className="flex items-center gap-2.5">
-                        <span className="text-lg">{typeof item.avatar === 'string' ? item.avatar : '🙏'}</span>
-                        <div>
-                          <span className="text-sm font-semibold block leading-tight">
-                            {item.name}
-                          </span>
-                          <span className="text-[10px] text-slate-400">
-                            {leaderboardTab === 'daily' ? 'Today' : 'This Week'}
-                          </span>
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-lg">{typeof item.avatar === 'string' ? item.avatar : '🙏'}</span>
+                          <div>
+                            <span className="text-sm font-semibold block leading-tight">
+                              {item.name}
+                            </span>
+                            <span className="text-[10px] text-slate-400">
+                              {leaderboardTab === 'daily' ? 'Today' : 'This Week'}
+                            </span>
+                          </div>
                         </div>
                       </div>
 
@@ -760,241 +761,145 @@ export default function App() {
                 </div>
               )}
 
-              <form onSubmit={handleLogSubmit} className="space-y-6">
-                
-                {/* Date Input */}
+              <form onSubmit={handleLogSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-2">Date of Devotion</label>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Prayer Duration (Hours)</label>
+                  <select
+                    value={durationHours}
+                    onChange={(e) => setDurationHours(parseFloat(e.target.value))}
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-sm outline-none transition"
+                  >
+                    <option value={0.5}>30 Minutes (0.5 hrs)</option>
+                    <option value={1.0}>1 Hour (1.0 hr)</option>
+                    <option value={1.5}>1.5 Hours (1.5 hrs)</option>
+                    <option value={2.0}>2 Hours (2.0 hrs)</option>
+                    <option value={2.5}>2.5 Hours (2.5 hrs)</option>
+                    <option value={3.0}>3 Hours (3.0 hrs - Max)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Date</label>
                   <input
                     type="date"
                     required
                     value={logDate}
                     onChange={(e) => setLogDate(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-sm outline-none focus:border-amber-500 transition"
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-sm outline-none transition"
                   />
                 </div>
 
-                {/* Duration Slider & Selector (0.5 hrs to 3.0 hrs) */}
                 <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <label className="text-xs font-semibold text-slate-400">Duration Covered</label>
-                    <span className="text-base font-extrabold text-amber-400 bg-amber-500/10 px-3 py-1 rounded-lg border border-amber-500/20">
-                      {parseFloat(durationHours).toFixed(1)} Hours ({Math.round(parseFloat(durationHours) * 60)} Mins)
-                    </span>
-                  </div>
-
-                  <input
-                    type="range"
-                    min="0.5"
-                    max="3.0"
-                    step="0.5"
-                    value={durationHours}
-                    onChange={(e) => setDurationHours(e.target.value)}
-                    className="w-full accent-amber-500 h-2 bg-slate-800 rounded-lg cursor-pointer my-3"
-                  />
-
-                  {/* Preset Quick Buttons */}
-                  <div className="grid grid-cols-4 gap-2 mt-2">
-                    {[0.5, 1.0, 2.0, 3.0].map((preset) => (
-                      <button
-                        key={preset}
-                        type="button"
-                        onClick={() => setDurationHours(preset)}
-                        className={`py-2 rounded-xl text-xs font-bold border transition ${
-                          parseFloat(durationHours) === preset
-                            ? 'bg-amber-500 text-slate-950 border-amber-500'
-                            : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
-                        }`}
-                      >
-                        {preset === 0.5 ? '30 mins' : `${preset} hrs`}
-                      </button>
-                    ))}
-                  </div>
-
-                  <p className="text-[11px] text-slate-500 mt-2">
-                    * Enforced rule: Min 0.5 hrs (30m) • Max 3 hrs per entry.
-                  </p>
-                </div>
-
-                {/* Reflection Notes */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-2">Reflection / Prayer Notes (Optional)</label>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Reflection / Notes (Optional)</label>
                   <textarea
-                    rows="3"
+                    rows={3}
                     value={reflection}
                     onChange={(e) => setReflection(e.target.value)}
-                    placeholder="Focus areas: Intercession, Worship, Scriptures read..."
-                    className="w-full p-4 rounded-xl bg-slate-950 border border-slate-800 text-sm outline-none focus:border-amber-500 transition resize-none"
+                    placeholder="What scriptures or burdens did you carry in prayer today?"
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-sm outline-none transition resize-none"
                   ></textarea>
                 </div>
 
-                {/* Submit Button */}
                 <button
                   type="submit"
                   disabled={isSubmittingLog}
-                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-extrabold text-sm shadow-lg shadow-amber-500/20 transition active:scale-[0.98] disabled:opacity-50"
+                  className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/25 transition disabled:opacity-50"
                 >
-                  {isSubmittingLog ? 'Recording Entry...' : 'Submit Prayer Mileage'}
+                  {isSubmittingLog ? 'Recording Mileage...' : 'Submit Prayer Hours'}
                 </button>
-
               </form>
-
             </div>
           </div>
         )}
 
-        {/* --- VIEW 3: 30-DAY OVERALL MILEAGE & CHALLENGE STATUS --- */}
+        {/* --- VIEW 3: 30-DAY MILEAGE CHALLENGE STATUS --- */}
         {activeTab === 'challenge' && (
-          <div className="space-y-6">
-            
-            {/* Main Progress Hero Card */}
-            <div className={`p-8 rounded-3xl border relative overflow-hidden ${darkMode ? 'bg-gradient-to-br from-slate-900 via-slate-900 to-purple-950/40 border-slate-800' : 'bg-white border-slate-200 shadow-md'}`}>
-              <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-                
-                <div>
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold mb-3">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    PDM 30-Day Spiritual Challenge
-                  </div>
-                  <h2 className="text-2xl sm:text-3xl font-extrabold bg-gradient-to-r from-amber-200 to-amber-400 bg-clip-text text-transparent">
-                    Overall User Mileage
-                  </h2>
-                  <p className="text-xs text-slate-400 mt-1 max-w-md">
-                    Total prayer endurance accumulated over the 30-day PDM challenge period.
-                  </p>
-                </div>
-
-                {/* Gauge Display */}
-                <div className="flex items-center gap-4 bg-slate-950/60 p-5 rounded-2xl border border-slate-800/80">
-                  <div className="text-center">
-                    <span className="text-4xl sm:text-5xl font-black text-amber-400">
-                      {userStats.total30DayHours.toFixed(1)}
-                    </span>
-                    <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mt-1">
-                      Total Hours
-                    </span>
-                  </div>
-                  <div className="h-12 w-[1px] bg-slate-800"></div>
-                  <div className="text-center">
-                    <span className="text-2xl font-bold text-purple-400">
-                      {userStats.goal30Day} hrs
-                    </span>
-                    <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mt-1">
-                      30-Day Goal
-                    </span>
-                  </div>
-                </div>
-
+          <div className={`max-w-xl mx-auto p-8 rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800 shadow-xl' : 'bg-white border-slate-200 shadow-md'}`}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 rounded-2xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400">
+                <TrendingUp className="w-6 h-6" />
               </div>
+              <div>
+                <h2 className="text-xl font-bold">30-Day Spiritual Endurance</h2>
+                <p className="text-xs text-slate-400">Your cumulative progress toward the 60-hour goal.</p>
+              </div>
+            </div>
 
-              {/* Progress Bar */}
-              <div className="mt-8 space-y-2">
-                <div className="flex justify-between text-xs font-semibold">
-                  <span className="text-slate-400">30-Day Goal Completion</span>
-                  <span className="text-amber-400 font-bold">{userStats.progressPercent}% Completed</span>
+            <div className="space-y-6">
+              <div className="p-5 rounded-2xl bg-slate-950/50 border border-slate-800/80">
+                <div className="flex justify-between text-sm mb-2 font-semibold">
+                  <span>Total Accumulated</span>
+                  <span className="text-amber-400">{userStats.total30DayHours.toFixed(1)} / {userStats.goal30Day} hrs</span>
                 </div>
-                <div className="w-full bg-slate-800 h-4 rounded-full overflow-hidden p-0.5 border border-slate-700/50">
+                <div className="w-full bg-slate-800 rounded-full h-3 overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-amber-500 via-purple-500 to-amber-400 rounded-full transition-all duration-1000"
+                    className="bg-gradient-to-r from-amber-500 to-purple-500 h-3 rounded-full transition-all duration-500"
                     style={{ width: `${userStats.progressPercent}%` }}
                   ></div>
                 </div>
+                <p className="text-[11px] text-slate-400 mt-2 text-right">{userStats.progressPercent}% of target achieved</p>
               </div>
-            </div>
 
-            {/* Challenge Breakdown Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className={`p-5 rounded-2xl border ${darkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
-                <div className="text-xs text-slate-400 mb-1">Average Daily Prayer</div>
-                <div className="text-2xl font-bold text-amber-400">
-                  {(userStats.total30DayHours / 30).toFixed(1)} <span className="text-xs font-normal text-slate-400">hrs/day</span>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 rounded-2xl bg-slate-950/40 border border-slate-800/80 text-center">
+                  <span className="block text-2xl font-bold text-amber-400">{userStats.totalEntries}</span>
+                  <span className="text-xs text-slate-400">Total Sessions Logged</span>
                 </div>
-              </div>
-
-              <div className={`p-5 rounded-2xl border ${darkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
-                <div className="text-xs text-slate-400 mb-1">Total Recorded Sessions</div>
-                <div className="text-2xl font-bold text-purple-400">
-                  {userStats.totalEntries} <span className="text-xs font-normal text-slate-400">entries</span>
-                </div>
-              </div>
-
-              <div className={`p-5 rounded-2xl border ${darkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
-                <div className="text-xs text-slate-400 mb-1">Status Badge</div>
-                <div className="text-sm font-bold text-emerald-400 flex items-center gap-1.5 mt-1">
-                  <CheckCircle2 className="w-4 h-4" />
-                  {userStats.total30DayHours >= 60 ? 'Endurance Conqueror' : 'Devoted Warrior'}
+                <div className="p-4 rounded-2xl bg-slate-950/40 border border-slate-800/80 text-center">
+                  <span className="block text-2xl font-bold text-purple-400">{(userStats.total30DayHours / (userStats.totalEntries || 1)).toFixed(1)} hrs</span>
+                  <span className="text-xs text-slate-400">Avg. Per Session</span>
                 </div>
               </div>
             </div>
-
           </div>
         )}
 
-        {/* --- VIEW 4: PERSONAL PRAYER LOG HISTORY --- */}
+        {/* --- VIEW 4: MY PRAYER LOG HISTORY --- */}
         {activeTab === 'history' && (
-          <div className={`p-6 rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-xl font-bold flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-amber-400" />
-                  Your Personal Prayer History
-                </h2>
-                <p className="text-xs text-slate-400 mt-1">Detailed timestamps of all logged prayer sessions.</p>
-              </div>
-              
-              <button
-                onClick={() => setActiveTab('log')}
-                className="px-3.5 py-2 rounded-xl bg-amber-500 text-slate-950 text-xs font-bold hover:bg-amber-400 transition"
-              >
-                + Add Entry
-              </button>
+          <div className="max-w-3xl mx-auto space-y-4">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <Clock className="w-5 h-5 text-amber-400" />
+                Your Prayer Log History
+              </h2>
+              <span className="text-xs text-slate-400">{userLogs.length} total records</span>
             </div>
 
             {userLogs.length === 0 ? (
-              <div className="text-center py-12 text-slate-500">
-                <BookOpen className="w-10 h-10 mx-auto mb-3 opacity-40" />
-                <p className="text-sm">No prayer sessions logged yet.</p>
-                <p className="text-xs text-slate-600 mt-1">Start by clicking "Log Prayer Hours" above!</p>
+              <div className={`p-12 text-center rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200'}`}>
+                <BookOpen className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                <p className="text-sm font-semibold text-slate-300">No prayer sessions logged yet.</p>
+                <p className="text-xs text-slate-500 mt-1">Click "Log Prayer Hours" above to record your first session.</p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {userLogs.map((log) => (
-                  <div
-                    key={log.id}
-                    className={`p-4 rounded-2xl border transition ${darkMode ? 'bg-slate-950/60 border-slate-800/70 hover:border-slate-700' : 'bg-slate-50 border-slate-200'}`}
-                  >
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 font-bold text-xs shrink-0">
-                          {log.duration}h
-                        </div>
-                        <div>
-                          <div className="text-sm font-semibold">{log.date}</div>
-                          <div className="text-[11px] text-slate-400">
-                            Duration: {log.duration} hours ({Math.round(log.duration * 60)} minutes)
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="text-xs font-bold text-amber-400 bg-amber-500/10 px-3 py-1 rounded-lg border border-amber-500/20">
-                        Verified Log
-                      </div>
+              userLogs.map((log) => (
+                <div
+                  key={log.id}
+                  className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}
+                >
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0 font-bold text-xs mt-0.5">
+                      {log.duration}h
                     </div>
-
-                    {log.reflection && (
-                      <div className="mt-3 pt-3 border-t border-slate-800/60 text-xs text-slate-300 italic">
-                        "{log.reflection}"
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-amber-400">{log.date}</span>
                       </div>
-                    )}
+                      <p className="text-sm text-slate-300 mt-1 italic">
+                        "{log.reflection || 'No reflection provided.'}"
+                      </p>
+                    </div>
                   </div>
-                ))}
-              </div>
+                  <div className="text-right text-xs text-slate-500 shrink-0 self-end sm:self-center">
+                    {new Date(log.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+              ))
             )}
           </div>
         )}
 
       </main>
-
     </div>
   );
 }
