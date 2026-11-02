@@ -6,6 +6,7 @@ import {
   onAuthStateChanged,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  sendPasswordResetEmail,
   signOut,
   updateProfile
 } from 'firebase/auth';
@@ -33,7 +34,8 @@ import {
   Mail,
   Sun,
   Moon,
-  Info
+  Info,
+  Users
 } from 'lucide-react';
 
 // --- Firebase Initialization ---
@@ -58,16 +60,18 @@ export default function App() {
   // Auth state
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [authMode, setAuthMode] = useState('login'); // 'login' | 'signup'
+  const [authMode, setAuthMode] = useState('login'); // 'login' | 'signup' | 'forgot'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [authError, setAuthError] = useState('');
+  const [authSuccess, setAuthSuccess] = useState('');
+  const [isSendingReset, setIsSendingReset] = useState(false);
 
   // Main UI State
   const [darkMode, setDarkMode] = useState(true);
-  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'log' | 'history' | 'challenge'
-  const [leaderboardTab, setLeaderboardTab] = useState('daily'); // 'daily' | 'weekly' | '30days'
+  const [activeTab, setActiveTab] = useState('dashboard'); 
+  const [leaderboardTab, setLeaderboardTab] = useState('alltime');
 
   // Logging Form State
   const [durationHours, setDurationHours] = useState(1.0);
@@ -107,7 +111,6 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
 
-    // Fetch public prayer records for global leaderboard calculations
     const publicRef = collection(db, 'artifacts', appId, 'public', 'data', 'prayerLogs');
     const unsubPublic = onSnapshot(
       publicRef,
@@ -116,12 +119,12 @@ export default function App() {
         snapshot.forEach((doc) => {
           logs.push({ id: doc.id, ...doc.data() });
         });
+        logs.sort((a, b) => new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date));
         setCommunityLogs(logs);
       },
       (err) => console.error("Error fetching community logs:", err)
     );
 
-    // Fetch user specific prayer records
     const privateRef = collection(db, 'artifacts', appId, 'users', user.uid, 'prayerLogs');
     const unsubPrivate = onSnapshot(
       privateRef,
@@ -146,6 +149,7 @@ export default function App() {
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
     setAuthError('');
+    setAuthSuccess('');
 
     if (authMode === 'signup') {
       if (!fullName.trim()) {
@@ -163,12 +167,40 @@ export default function App() {
       } catch (err) {
         setAuthError(err.message.replace('Firebase:', '').trim());
       }
-    } else {
+    } else if (authMode === 'login') {
       try {
         await signInWithEmailAndPassword(auth, email, password);
       } catch (err) {
         setAuthError('Invalid email or password credential.');
       }
+    }
+  };
+
+  // Password Reset Handler
+  const handlePasswordReset = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    setAuthSuccess('');
+
+    if (!email.trim()) {
+      setAuthError('Please enter your email address to reset your password.');
+      return;
+    }
+
+    setIsSendingReset(true);
+    try {
+      await sendPasswordResetEmail(auth, email.trim());
+      setAuthSuccess('Password reset link sent! Please check your email inbox (and spam folder).');
+    } catch (err) {
+      if (err.code === 'auth/user-not-found') {
+        setAuthError('No account found with this email address.');
+      } else if (err.code === 'auth/invalid-email') {
+        setAuthError('Please enter a valid email address.');
+      } else {
+        setAuthError('Failed to send reset email. Please try again.');
+      }
+    } finally {
+      setIsSendingReset(false);
     }
   };
 
@@ -227,7 +259,7 @@ export default function App() {
     }
   };
 
-  // Calculations: User Totals
+  // Calculations: User Personal Totals
   const userStats = useMemo(() => {
     const todayStr = new Date().toISOString().split('T')[0];
     const now = new Date();
@@ -272,7 +304,7 @@ export default function App() {
     };
   }, [userLogs]);
 
-  // Aggregate Leaderboards (Daily, Weekly, 30-Days) from Real Community Logs
+  // Aggregate Leaderboards
   const leaderboards = useMemo(() => {
     const todayStr = new Date().toISOString().split('T')[0];
     const now = new Date();
@@ -285,6 +317,7 @@ export default function App() {
     thirtyDaysAgo.setDate(now.getDate() - 30);
     thirtyDaysAgo.setHours(0, 0, 0, 0);
 
+    const mapAllTime = {};
     const mapDaily = {};
     const mapWeekly = {};
     const map30Days = {};
@@ -295,19 +328,19 @@ export default function App() {
       const uid = log.userId || 'anon';
       const uName = log.userName || 'Prayer Warrior';
 
-      // Daily
+      if (!mapAllTime[uid]) mapAllTime[uid] = { id: uid, name: uName, hours: 0, avatar: '🔥' };
+      mapAllTime[uid].hours += hrs;
+
       if (log.date === todayStr) {
         if (!mapDaily[uid]) mapDaily[uid] = { id: uid, name: uName, hours: 0, avatar: '🔥' };
         mapDaily[uid].hours += hrs;
       }
 
-      // Weekly
       if (logDateObj >= startOfWeek) {
         if (!mapWeekly[uid]) mapWeekly[uid] = { id: uid, name: uName, hours: 0, avatar: '🔥' };
         mapWeekly[uid].hours += hrs;
       }
 
-      // 30 Days
       if (logDateObj >= thirtyDaysAgo) {
         if (!map30Days[uid]) map30Days[uid] = { id: uid, name: uName, hours: 0, avatar: '🔥' };
         map30Days[uid].hours += hrs;
@@ -315,6 +348,7 @@ export default function App() {
     });
 
     return {
+      alltime: Object.values(mapAllTime).sort((a, b) => b.hours - a.hours).slice(0, 10),
       daily: Object.values(mapDaily).sort((a, b) => b.hours - a.hours).slice(0, 10),
       weekly: Object.values(mapWeekly).sort((a, b) => b.hours - a.hours).slice(0, 10),
       '30days': Object.values(map30Days).sort((a, b) => b.hours - a.hours).slice(0, 10),
@@ -353,14 +387,14 @@ export default function App() {
             <div className="flex bg-slate-800/50 p-1 rounded-xl mb-6">
               <button
                 type="button"
-                onClick={() => { setAuthMode('login'); setAuthError(''); }}
+                onClick={() => { setAuthMode('login'); setAuthError(''); setAuthSuccess(''); }}
                 className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${authMode === 'login' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'}`}
               >
                 Sign In
               </button>
               <button
                 type="button"
-                onClick={() => { setAuthMode('signup'); setAuthError(''); }}
+                onClick={() => { setAuthMode('signup'); setAuthError(''); setAuthSuccess(''); }}
                 className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${authMode === 'signup' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'}`}
               >
                 Sign Up
@@ -374,61 +408,120 @@ export default function App() {
               </div>
             )}
 
-            <form onSubmit={handleAuthSubmit} className="space-y-4">
-              {authMode === 'signup' && (
+            {authSuccess && (
+              <div className="mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>{authSuccess}</span>
+              </div>
+            )}
+
+            {authMode === 'forgot' ? (
+              <form onSubmit={handlePasswordReset} className="space-y-4">
+                <p className="text-xs text-slate-400 mb-2">
+                  Enter your registered email address below and we will send you a password reset link.
+                </p>
+
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">Full Name</label>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Email Address</label>
                   <div className="relative">
-                    <User className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                    <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                     <input
-                      type="text"
+                      type="email"
                       required
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      placeholder="e.g. Sister Grace Ogundipe"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="devotee@sanctuary.org"
                       className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-sm outline-none transition"
                     />
                   </div>
                 </div>
-              )}
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1">Email Address</label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="devotee@sanctuary.org"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-sm outline-none transition"
-                  />
+                <button
+                  type="submit"
+                  disabled={isSendingReset}
+                  className="w-full py-3 mt-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/25 transition disabled:opacity-50"
+                >
+                  {isSendingReset ? 'Sending Reset Email...' : 'Send Reset Email'}
+                </button>
+
+                <div className="text-center mt-3">
+                  <button
+                    type="button"
+                    onClick={() => { setAuthMode('login'); setAuthError(''); setAuthSuccess(''); }}
+                    className="text-xs text-amber-400 hover:underline"
+                  >
+                    Back to Sign In
+                  </button>
                 </div>
-              </div>
+              </form>
+            ) : (
+              <form onSubmit={handleAuthSubmit} className="space-y-4">
+                {authMode === 'signup' && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">Full Name</label>
+                    <div className="relative">
+                      <User className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                      <input
+                        type="text"
+                        required
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        placeholder="e.g. Sister Grace Ogundipe"
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-sm outline-none transition"
+                      />
+                    </div>
+                  </div>
+                )}
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1">Password</label>
-                <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                  <input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-sm outline-none transition"
-                  />
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Email Address</label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="devotee@sanctuary.org"
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-sm outline-none transition"
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <button
-                type="submit"
-                className="w-full py-3 mt-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/25 transition active:scale-[0.98]"
-              >
-                {authMode === 'signup' ? 'Create Account' : 'Sign In'}
-              </button>
-            </form>
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="block text-xs font-semibold text-slate-400">Password</label>
+                    {authMode === 'login' && (
+                      <button
+                        type="button"
+                        onClick={() => { setAuthMode('forgot'); setAuthError(''); setAuthSuccess(''); }}
+                        className="text-[11px] text-amber-400 hover:underline"
+                      >
+                        Forgot Password?
+                      </button>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                    <input
+                      type="password"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-sm outline-none transition"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-3 mt-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/25 transition active:scale-[0.98]"
+                >
+                  {authMode === 'signup' ? 'Create Account' : 'Sign In'}
+                </button>
+              </form>
+            )}
           </div>
           
           <div className="mt-6 text-center text-xs text-slate-500">
@@ -529,92 +622,154 @@ export default function App() {
         {activeTab === 'dashboard' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
-            <div className={`lg:col-span-2 p-6 rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
+            <div className="lg:col-span-2 space-y-6">
               
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                <div>
-                  <h2 className="text-xl font-bold flex items-center gap-2">
-                    <Trophy className="w-5 h-5 text-amber-400" />
-                    Top 10 Prayer Warriors
-                  </h2>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Recognizing dedicated prayer mileage rankings.
-                  </p>
+              <div className={`p-6 rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                  <div>
+                    <h2 className="text-xl font-bold flex items-center gap-2">
+                      <Trophy className="w-5 h-5 text-amber-400" />
+                      Top 10 Prayer Warriors
+                    </h2>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Recognizing dedicated prayer mileage rankings across all members.
+                    </p>
+                  </div>
+
+                  <div className="flex bg-slate-800/60 p-1 rounded-xl self-start sm:self-auto border border-slate-700/50 flex-wrap gap-1">
+                    <button
+                      onClick={() => setLeaderboardTab('alltime')}
+                      className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${leaderboardTab === 'alltime' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'}`}
+                    >
+                      All Total
+                    </button>
+                    <button
+                      onClick={() => setLeaderboardTab('daily')}
+                      className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${leaderboardTab === 'daily' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'}`}
+                    >
+                      Daily
+                    </button>
+                    <button
+                      onClick={() => setLeaderboardTab('weekly')}
+                      className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${leaderboardTab === 'weekly' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'}`}
+                    >
+                      Weekly
+                    </button>
+                    <button
+                      onClick={() => setLeaderboardTab('30days')}
+                      className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${leaderboardTab === '30days' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'}`}
+                    >
+                      30-Day
+                    </button>
+                  </div>
                 </div>
 
-                {/* Sub-tabs: Daily vs Weekly vs End of 30 Days */}
-                <div className="flex bg-slate-800/60 p-1 rounded-xl self-start sm:self-auto border border-slate-700/50">
-                  <button
-                    onClick={() => setLeaderboardTab('daily')}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${leaderboardTab === 'daily' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'}`}
-                  >
-                    Daily Top 10
-                  </button>
-                  <button
-                    onClick={() => setLeaderboardTab('weekly')}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${leaderboardTab === 'weekly' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'}`}
-                  >
-                    Weekly Top 10
-                  </button>
-                  <button
-                    onClick={() => setLeaderboardTab('30days')}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${leaderboardTab === '30days' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'}`}
-                  >
-                    30-Day Top 10
-                  </button>
+                <div className="space-y-3">
+                  {leaderboards[leaderboardTab].length === 0 ? (
+                    <div className="p-8 text-center text-xs text-slate-500">
+                      No active records found for this period yet. Switch to "All Total" to view total member mileage!
+                    </div>
+                  ) : (
+                    leaderboards[leaderboardTab].map((item, index) => {
+                      const rank = index + 1;
+                      const isCurrentUser = item.id === user.uid;
+
+                      return (
+                        <div
+                          key={item.id}
+                          className={`flex items-center justify-between p-3.5 rounded-2xl border transition ${
+                            isCurrentUser
+                              ? 'bg-amber-500/10 border-amber-500/40'
+                              : rank === 1 
+                              ? 'bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-amber-500/30' 
+                              : rank === 2 
+                              ? 'bg-slate-800/40 border-slate-700/40' 
+                              : rank === 3 
+                              ? 'bg-amber-900/10 border-amber-800/20' 
+                              : darkMode ? 'bg-slate-950/40 border-slate-800/60' : 'bg-slate-50 border-slate-200'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs shrink-0">
+                              {rank === 1 && <Medal className="w-6 h-6 text-amber-400" />}
+                              {rank === 2 && <Medal className="w-6 h-6 text-slate-300" />}
+                              {rank === 3 && <Medal className="w-6 h-6 text-amber-700" />}
+                              {rank > 3 && <span className="text-slate-400">#{rank}</span>}
+                            </div>
+
+                            <div className="flex items-center gap-2.5">
+                              <span className="text-lg">{item.avatar}</span>
+                              <div>
+                                <span className="text-sm font-semibold block leading-tight flex items-center gap-1.5">
+                                  {item.name}
+                                  {isCurrentUser && (
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">You</span>
+                                  )}
+                                </span>
+                                <span className="text-[10px] text-slate-400">
+                                  {leaderboardTab === 'alltime' ? 'All-Time Total' : leaderboardTab === 'daily' ? 'Today' : leaderboardTab === 'weekly' ? 'This Week' : '30-Day Cumulative'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="text-right">
+                            <span className="text-sm font-extrabold text-amber-400">
+                              {item.hours.toFixed(1)} <span className="text-xs font-normal text-slate-400">hrs</span>
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
 
-              <div className="space-y-3">
-                {leaderboards[leaderboardTab].length === 0 ? (
-                  <div className="p-8 text-center text-xs text-slate-500">
-                    No active records found for this period yet. Be the first on the leaderboard!
-                  </div>
+              <div className={`p-6 rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
+                <h3 className="text-sm font-bold flex items-center gap-2 mb-4">
+                  <Users className="w-4 h-4 text-purple-400" />
+                  Live Community Activity Feed
+                </h3>
+
+                {communityLogs.length === 0 ? (
+                  <p className="text-xs text-slate-500 text-center py-4">No community logs recorded yet.</p>
                 ) : (
-                  leaderboards[leaderboardTab].map((item, index) => {
-                    const rank = index + 1;
-                    return (
+                  <div className="space-y-3">
+                    {communityLogs.slice(0, 5).map((log) => (
                       <div
-                        key={item.id}
-                        className={`flex items-center justify-between p-3.5 rounded-2xl border transition ${
-                          rank === 1 
-                            ? 'bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-amber-500/30' 
-                            : rank === 2 
-                            ? 'bg-slate-800/40 border-slate-700/40' 
-                            : rank === 3 
-                            ? 'bg-amber-900/10 border-amber-800/20' 
+                        key={log.id}
+                        className={`p-3.5 rounded-2xl border flex items-center justify-between text-xs transition ${
+                          log.userId === user.uid
+                            ? 'bg-amber-500/5 border-amber-500/20'
                             : darkMode ? 'bg-slate-950/40 border-slate-800/60' : 'bg-slate-50 border-slate-200'
                         }`}
                       >
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs shrink-0">
-                            {rank === 1 && <Medal className="w-6 h-6 text-amber-400" />}
-                            {rank === 2 && <Medal className="w-6 h-6 text-slate-300" />}
-                            {rank === 3 && <Medal className="w-6 h-6 text-amber-700" />}
-                            {rank > 3 && <span className="text-slate-400">#{rank}</span>}
+                          <div className="w-8 h-8 rounded-full bg-purple-500/20 text-purple-300 flex items-center justify-center font-bold text-xs shrink-0">
+                            {log.userName ? log.userName.charAt(0).toUpperCase() : 'U'}
                           </div>
-
-                          <div className="flex items-center gap-2.5">
-                            <span className="text-lg">{item.avatar}</span>
-                            <div>
-                              <span className="text-sm font-semibold block leading-tight">
-                                {item.name}
-                              </span>
-                              <span className="text-[10px] text-slate-400">
-                                {leaderboardTab === 'daily' ? 'Today' : leaderboardTab === 'weekly' ? 'This Week' : '30-Day Cumulative'}
-                              </span>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-slate-200">{log.userName || 'Devotee'}</span>
+                              {log.category && (
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                                  {log.category}
+                                </span>
+                              )}
                             </div>
+                            <p className="text-[11px] text-slate-400 mt-0.5 italic">
+                              "{log.reflection || 'Logged prayer session'}"
+                            </p>
                           </div>
                         </div>
 
-                        <div className="text-right">
-                          <span className="text-sm font-extrabold text-amber-400">
-                            {item.hours.toFixed(1)} <span className="text-xs font-normal text-slate-400">hrs</span>
-                          </span>
+                        <div className="text-right shrink-0">
+                          <span className="font-bold text-amber-400">{log.duration} hrs</span>
+                          <span className="block text-[10px] text-slate-500">{log.date}</span>
                         </div>
                       </div>
-                    );
-                  })
+                    ))}
+                  </div>
                 )}
               </div>
 
@@ -671,7 +826,7 @@ export default function App() {
                 </div>
                 <p>• Minimum entry: <strong>30 minutes (0.5 hrs)</strong></p>
                 <p>• Maximum entry: <strong>3 hours (3.0 hrs)</strong> per log</p>
-                <p>• Leaderboards support Daily, Weekly, and 30-Day views.</p>
+                <p>• Password resets sent directly to user email.</p>
               </div>
 
             </div>
@@ -757,7 +912,7 @@ export default function App() {
                     value={reflection}
                     onChange={(e) => setReflection(e.target.value)}
                     placeholder="What scriptures or burdens did you carry in prayer today?"
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-sm outline-none transition resize-none"
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm outline-none transition resize-none"
                   ></textarea>
                 </div>
 
