@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { initializeApp } from 'firebase/app';
 import { 
   getAuth, 
-  signInAnonymously, 
   signInWithCustomToken, 
   onAuthStateChanged,
   createUserWithEmailAndPassword,
@@ -13,15 +12,11 @@ import {
 import { 
   getFirestore, 
   collection, 
-  doc, 
-  setDoc, 
   addDoc, 
-  onSnapshot,
-  serverTimestamp 
+  onSnapshot 
 } from 'firebase/firestore';
 import { 
   Flame, 
-  Award, 
   Calendar, 
   Clock, 
   BookOpen, 
@@ -34,8 +29,6 @@ import {
   Trophy, 
   Medal, 
   CheckCircle2, 
-  ChevronRight,
-  BarChart2,
   Lock,
   Mail,
   Sun,
@@ -61,20 +54,6 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'pdm-prayer-mileage-tracker';
 
-// Mock baseline data for vibrant community leaderboards
-const INITIAL_MOCK_LEADERBOARD = [
-  { id: 'm1', name: 'Sister Grace O.', hoursToday: 3.0, hoursWeek: 18.5, total30Days: 72.0, avatar: '✨' },
-  { id: 'm2', name: 'Pastor David K.', hoursToday: 2.5, hoursWeek: 16.0, total30Days: 68.5, avatar: '🕊️' },
-  { id: 'm3', name: 'Hannah M.', hoursToday: 2.5, hoursWeek: 15.0, total30Days: 61.0, avatar: '⭐' },
-  { id: 'm4', name: 'Brother Emmanuel', hoursToday: 2.0, hoursWeek: 14.0, total30Days: 58.0, avatar: '🔥' },
-  { id: 'm5', name: 'Samuel B.', hoursToday: 2.0, hoursWeek: 13.5, total30Days: 54.0, avatar: '🙏' },
-  { id: 'm6', name: 'Rachel T.', hoursToday: 1.5, hoursWeek: 11.5, total30Days: 49.0, avatar: '🌸' },
-  { id: 'm7', name: 'Joshua N.', hoursToday: 1.5, hoursWeek: 10.0, total30Days: 45.0, avatar: '⚡' },
-  { id: 'm8', name: 'Esther P.', hoursToday: 1.0, hoursWeek: 9.5, total30Days: 41.5, avatar: '👑' },
-  { id: 'm9', name: 'Michael C.', hoursToday: 1.0, hoursWeek: 8.0, total30Days: 38.0, avatar: '🛡️' },
-  { id: 'm10', name: 'Deborah A.', hoursToday: 0.5, hoursWeek: 7.0, total30Days: 32.0, avatar: '🌿' },
-];
-
 export default function App() {
   // Auth state
   const [user, setUser] = useState(null);
@@ -88,10 +67,11 @@ export default function App() {
   // Main UI State
   const [darkMode, setDarkMode] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'log' | 'history' | 'challenge'
-  const [leaderboardTab, setLeaderboardTab] = useState('daily'); // 'daily' | 'weekly'
+  const [leaderboardTab, setLeaderboardTab] = useState('daily'); // 'daily' | 'weekly' | '30days'
 
-  // Logging Form State (Validation: Min 0.5hr / 30 mins, Max 3.0hrs)
-  const [durationHours, setDurationHours] = useState(1.0); // decimal representation
+  // Logging Form State
+  const [durationHours, setDurationHours] = useState(1.0);
+  const [prayerCategory, setPrayerCategory] = useState('Personal Prayer');
   const [logDate, setLogDate] = useState(new Date().toISOString().split('T')[0]);
   const [reflection, setReflection] = useState('');
   const [logSuccess, setLogSuccess] = useState('');
@@ -110,7 +90,7 @@ export default function App() {
           await signInWithCustomToken(auth, __initial_auth_token);
         }
       } catch (err) {
-        console.warn("Auth token fallback to anonymous/custom:", err);
+        console.warn("Auth token fallback:", err);
       }
     };
     initAuth();
@@ -150,7 +130,6 @@ export default function App() {
         snapshot.forEach((doc) => {
           logs.push({ id: doc.id, ...doc.data() });
         });
-        // Sort newest first
         logs.sort((a, b) => new Date(b.date) - new Date(a.date));
         setUserLogs(logs);
       },
@@ -193,28 +172,16 @@ export default function App() {
     }
   };
 
-  const handleDemoSignIn = async () => {
-    try {
-      await signInAnonymously(auth);
-      if (auth.currentUser && !auth.currentUser.displayName) {
-        await updateProfile(auth.currentUser, { displayName: 'Grace Walker' });
-      }
-    } catch (err) {
-      setAuthError('Could not sign in anonymously');
-    }
-  };
-
   const handleSignOut = () => {
     signOut(auth);
   };
 
-  // Prayer Log Submission (Min 0.5 hrs, Max 3 hrs)
+  // Prayer Log Submission
   const handleLogSubmit = async (e) => {
     e.preventDefault();
     setLogError('');
     setLogSuccess('');
 
-    // Validation
     const hrs = parseFloat(durationHours);
     if (isNaN(hrs) || hrs < 0.5) {
       setLogError('Minimum prayer time required is 30 minutes (0.5 hours).');
@@ -233,20 +200,19 @@ export default function App() {
         userId: user.uid,
         userName: displayName,
         duration: hrs,
+        category: prayerCategory,
         date: logDate,
         reflection: reflection.trim(),
         createdAt: new Date().toISOString()
       };
 
-      // 1. Save to user private collection
       await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'prayerLogs'), newEntry);
-
-      // 2. Save to public collection for leaderboards
       await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'prayerLogs'), newEntry);
 
       setLogSuccess(`Successfully recorded ${hrs} hour(s) of prayer!`);
       setReflection('');
       setDurationHours(1.0);
+      setPrayerCategory('Personal Prayer');
 
       setTimeout(() => {
         setLogSuccess('');
@@ -261,17 +227,15 @@ export default function App() {
     }
   };
 
-  // Calculations: User Totals & Leaderboards
+  // Calculations: User Totals
   const userStats = useMemo(() => {
     const todayStr = new Date().toISOString().split('T')[0];
     const now = new Date();
     
-    // Start of current week (Sunday or Monday)
     const startOfWeek = new Date(now);
     startOfWeek.setDate(now.getDate() - now.getDay());
     startOfWeek.setHours(0, 0, 0, 0);
 
-    // 30 Days Ago
     const thirtyDaysAgo = new Date(now);
     thirtyDaysAgo.setDate(now.getDate() - 30);
     thirtyDaysAgo.setHours(0, 0, 0, 0);
@@ -295,7 +259,6 @@ export default function App() {
       }
     });
 
-    // 30-day Goal Target (e.g. 60 Hours goal = 2 hours daily average)
     const goal30Day = 60;
     const progressPercent = Math.min(100, Math.round((total30DayHours / goal30Day) * 100));
 
@@ -309,56 +272,52 @@ export default function App() {
     };
   }, [userLogs]);
 
-  // Aggregate Leaderboards combining Mock + Firebase Realtime User Data
+  // Aggregate Leaderboards (Daily, Weekly, 30-Days) from Real Community Logs
   const leaderboards = useMemo(() => {
     const todayStr = new Date().toISOString().split('T')[0];
     const now = new Date();
+    
     const startOfWeek = new Date(now);
     startOfWeek.setDate(now.getDate() - now.getDay());
     startOfWeek.setHours(0, 0, 0, 0);
 
-    const mapUserDaily = {};
-    const mapUserWeekly = {};
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(now.getDate() - 30);
+    thirtyDaysAgo.setHours(0, 0, 0, 0);
 
-    // 1. Seed with mock items
-    INITIAL_MOCK_LEADERBOARD.forEach(m => {
-      mapUserDaily[m.id] = { id: m.id, name: m.name, hours: m.hoursToday, avatar: m.avatar };
-      mapUserWeekly[m.id] = { id: m.id, name: m.name, hours: m.hoursWeek, avatar: m.avatar };
-    });
+    const mapDaily = {};
+    const mapWeekly = {};
+    const map30Days = {};
 
-    // 2. Add realtime data from Firestore
     communityLogs.forEach(log => {
       const logDateObj = new Date(log.date);
       const hrs = Number(log.duration) || 0;
       const uid = log.userId || 'anon';
-      const uName = log.userName || 'Believer';
+      const uName = log.userName || 'Prayer Warrior';
 
+      // Daily
       if (log.date === todayStr) {
-        if (!mapUserDaily[uid]) {
-          mapUserDaily[uid] = { id: uid, name: uName, hours: 0, avatar: '🔥' };
-        }
-        mapUserDaily[uid].hours += hrs;
+        if (!mapDaily[uid]) mapDaily[uid] = { id: uid, name: uName, hours: 0, avatar: '🔥' };
+        mapDaily[uid].hours += hrs;
       }
 
+      // Weekly
       if (logDateObj >= startOfWeek) {
-        if (!mapUserWeekly[uid]) {
-          mapUserWeekly[uid] = { id: uid, name: uName, hours: 0, avatar: '🔥' };
-        }
-        mapUserWeekly[uid].hours += hrs;
+        if (!mapWeekly[uid]) mapWeekly[uid] = { id: uid, name: uName, hours: 0, avatar: '🔥' };
+        mapWeekly[uid].hours += hrs;
+      }
+
+      // 30 Days
+      if (logDateObj >= thirtyDaysAgo) {
+        if (!map30Days[uid]) map30Days[uid] = { id: uid, name: uName, hours: 0, avatar: '🔥' };
+        map30Days[uid].hours += hrs;
       }
     });
 
-    const dailySorted = Object.values(mapUserDaily)
-      .sort((a, b) => b.hours - a.hours)
-      .slice(0, 10);
-
-    const weeklySorted = Object.values(mapUserWeekly)
-      .sort((a, b) => b.hours - a.hours)
-      .slice(0, 10);
-
     return {
-      daily: dailySorted,
-      weekly: weeklySorted
+      daily: Object.values(mapDaily).sort((a, b) => b.hours - a.hours).slice(0, 10),
+      weekly: Object.values(mapWeekly).sort((a, b) => b.hours - a.hours).slice(0, 10),
+      '30days': Object.values(map30Days).sort((a, b) => b.hours - a.hours).slice(0, 10),
     };
   }, [communityLogs]);
 
@@ -377,7 +336,6 @@ export default function App() {
       <div className={`min-h-screen ${darkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-800'} flex items-center justify-center p-4 transition-colors duration-300`}>
         <div className="w-full max-w-md">
           
-          {/* Header Branding */}
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-500 to-purple-600 shadow-lg shadow-purple-500/20 mb-4">
               <Flame className="w-8 h-8 text-white" />
@@ -390,10 +348,8 @@ export default function App() {
             </p>
           </div>
 
-          {/* Auth Card */}
           <div className={`p-8 rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800 shadow-2xl shadow-purple-950/40' : 'bg-white border-slate-200 shadow-xl'}`}>
             
-            {/* Toggle Tabs */}
             <div className="flex bg-slate-800/50 p-1 rounded-xl mb-6">
               <button
                 type="button"
@@ -473,7 +429,6 @@ export default function App() {
                 {authMode === 'signup' ? 'Create Account' : 'Sign In'}
               </button>
             </form>
-
           </div>
           
           <div className="mt-6 text-center text-xs text-slate-500">
@@ -503,7 +458,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* User Profile & Actions */}
           <div className="flex items-center gap-3">
             <button
               onClick={() => setDarkMode(!darkMode)}
@@ -575,7 +529,6 @@ export default function App() {
         {activeTab === 'dashboard' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
-            {/* Column 1: Leaderboard (Spans 2 cols) */}
             <div className={`lg:col-span-2 p-6 rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
               
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -585,11 +538,11 @@ export default function App() {
                     Top 10 Prayer Warriors
                   </h2>
                   <p className="text-xs text-slate-400 mt-1">
-                    Recognizing dedicated prayer mileage for believers.
+                    Recognizing dedicated prayer mileage rankings.
                   </p>
                 </div>
 
-                {/* Sub-tab: Daily vs Weekly */}
+                {/* Sub-tabs: Daily vs Weekly vs End of 30 Days */}
                 <div className="flex bg-slate-800/60 p-1 rounded-xl self-start sm:self-auto border border-slate-700/50">
                   <button
                     onClick={() => setLeaderboardTab('daily')}
@@ -603,68 +556,72 @@ export default function App() {
                   >
                     Weekly Top 10
                   </button>
+                  <button
+                    onClick={() => setLeaderboardTab('30days')}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${leaderboardTab === '30days' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'}`}
+                  >
+                    30-Day Top 10
+                  </button>
                 </div>
               </div>
 
-              {/* Leaderboard List */}
               <div className="space-y-3">
-                {leaderboards[leaderboardTab].map((item, index) => {
-                  const rank = index + 1;
-                  const isTop3 = rank <= 3;
-                  
-                  return (
-                    <div
-                      key={item.id}
-                      className={`flex items-center justify-between p-3.5 rounded-2xl border transition ${
-                        rank === 1 
-                          ? 'bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-amber-500/30' 
-                          : rank === 2 
-                          ? 'bg-slate-800/40 border-slate-700/40' 
-                          : rank === 3 
-                          ? 'bg-amber-900/10 border-amber-800/20' 
-                          : darkMode ? 'bg-slate-950/40 border-slate-800/60' : 'bg-slate-50 border-slate-200'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        {/* Rank Badge */}
-                        <div className="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs shrink-0">
-                          {rank === 1 && <Medal className="w-6 h-6 text-amber-400" />}
-                          {rank === 2 && <Medal className="w-6 h-6 text-slate-300" />}
-                          {rank === 3 && <Medal className="w-6 h-6 text-amber-700" />}
-                          {rank > 3 && <span className="text-slate-400">#{rank}</span>}
-                        </div>
+                {leaderboards[leaderboardTab].length === 0 ? (
+                  <div className="p-8 text-center text-xs text-slate-500">
+                    No active records found for this period yet. Be the first on the leaderboard!
+                  </div>
+                ) : (
+                  leaderboards[leaderboardTab].map((item, index) => {
+                    const rank = index + 1;
+                    return (
+                      <div
+                        key={item.id}
+                        className={`flex items-center justify-between p-3.5 rounded-2xl border transition ${
+                          rank === 1 
+                            ? 'bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-amber-500/30' 
+                            : rank === 2 
+                            ? 'bg-slate-800/40 border-slate-700/40' 
+                            : rank === 3 
+                            ? 'bg-amber-900/10 border-amber-800/20' 
+                            : darkMode ? 'bg-slate-950/40 border-slate-800/60' : 'bg-slate-50 border-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs shrink-0">
+                            {rank === 1 && <Medal className="w-6 h-6 text-amber-400" />}
+                            {rank === 2 && <Medal className="w-6 h-6 text-slate-300" />}
+                            {rank === 3 && <Medal className="w-6 h-6 text-amber-700" />}
+                            {rank > 3 && <span className="text-slate-400">#{rank}</span>}
+                          </div>
 
-                        {/* User Avatar & Name */}
-                        <div className="flex items-center gap-2.5">
-                          <span className="text-lg">{typeof item.avatar === 'string' ? item.avatar : '🙏'}</span>
-                          <div>
-                            <span className="text-sm font-semibold block leading-tight">
-                              {item.name}
-                            </span>
-                            <span className="text-[10px] text-slate-400">
-                              {leaderboardTab === 'daily' ? 'Today' : 'This Week'}
-                            </span>
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-lg">{item.avatar}</span>
+                            <div>
+                              <span className="text-sm font-semibold block leading-tight">
+                                {item.name}
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                {leaderboardTab === 'daily' ? 'Today' : leaderboardTab === 'weekly' ? 'This Week' : '30-Day Cumulative'}
+                              </span>
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      {/* Prayer Hours Metric */}
-                      <div className="text-right">
-                        <span className="text-sm font-extrabold text-amber-400">
-                          {item.hours.toFixed(1)} <span className="text-xs font-normal text-slate-400">hrs</span>
-                        </span>
+                        <div className="text-right">
+                          <span className="text-sm font-extrabold text-amber-400">
+                            {item.hours.toFixed(1)} <span className="text-xs font-normal text-slate-400">hrs</span>
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
 
             </div>
 
-            {/* Column 2: Personal Quick Snapshot */}
             <div className="space-y-6">
               
-              {/* Daily Status Card */}
               <div className={`p-6 rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4 flex items-center gap-2">
                   <Sun className="w-4 h-4 text-amber-400" />
@@ -694,7 +651,6 @@ export default function App() {
                 </button>
               </div>
 
-              {/* Weekly Status Card */}
               <div className={`p-6 rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-purple-400" />
@@ -708,7 +664,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Rules Reminder Card */}
               <div className={`p-5 rounded-2xl border ${darkMode ? 'bg-slate-950/60 border-slate-800/80 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-600'} text-xs space-y-2`}>
                 <div className="font-semibold text-amber-400 flex items-center gap-1.5">
                   <ShieldCheck className="w-4 h-4" />
@@ -716,7 +671,7 @@ export default function App() {
                 </div>
                 <p>• Minimum entry: <strong>30 minutes (0.5 hrs)</strong></p>
                 <p>• Maximum entry: <strong>3 hours (3.0 hrs)</strong> per log</p>
-                <p>• Leaderboards update automatically upon daily/weekly log submissions.</p>
+                <p>• Leaderboards support Daily, Weekly, and 30-Day views.</p>
               </div>
 
             </div>
@@ -724,7 +679,7 @@ export default function App() {
           </div>
         )}
 
-        {/* --- VIEW 2: PRAYER HOURS LOGGING FORM --- */}
+        {/* --- VIEW 2: PRAYER HOURS LOGGING FORM WITH CATEGORIES --- */}
         {activeTab === 'log' && (
           <div className="max-w-xl mx-auto">
             <div className={`p-8 rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800 shadow-xl' : 'bg-white border-slate-200 shadow-md'}`}>
@@ -735,7 +690,7 @@ export default function App() {
                 </div>
                 <div>
                   <h2 className="text-xl font-bold">Record Prayer Mileage</h2>
-                  <p className="text-xs text-slate-400">Log your devoted hours for today or a past date.</p>
+                  <p className="text-xs text-slate-400">Log your devoted hours, category, and reflection.</p>
                 </div>
               </div>
 
@@ -767,6 +722,20 @@ export default function App() {
                     <option value={2.0}>2 Hours (2.0 hrs)</option>
                     <option value={2.5}>2.5 Hours (2.5 hrs)</option>
                     <option value={3.0}>3 Hours (3.0 hrs - Max)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Prayer Category</label>
+                  <select
+                    value={prayerCategory}
+                    onChange={(e) => setPrayerCategory(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-sm outline-none transition"
+                  >
+                    <option value="Revival & spiritual Awakening">Revival & spiritual Awakening</option>
+                    <option value="Healing & Deliverance">Healing & Deliverance</option>
+                    <option value="Families">Families</option>
+                    <option value="Personal Prayer">Personal Prayer</option>
                   </select>
                 </div>
 
@@ -876,6 +845,11 @@ export default function App() {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold text-amber-400">{log.date}</span>
+                        {log.category && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 font-semibold">
+                            {log.category}
+                          </span>
+                        )}
                       </div>
                       <p className="text-sm text-slate-300 mt-1 italic">
                         "{log.reflection || 'No reflection provided.'}"
