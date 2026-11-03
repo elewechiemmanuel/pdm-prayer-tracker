@@ -73,8 +73,9 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard'); 
   const [leaderboardTab, setLeaderboardTab] = useState('alltime');
 
-  // Logging Form State
-  const [durationHours, setDurationHours] = useState(1.0);
+  // Logging Form State (Custom Hours & Minutes)
+  const [logHours, setLogHours] = useState(1);
+  const [logMinutes, setLogMinutes] = useState(0);
   const [prayerCategory, setPrayerCategory] = useState('Personal Prayer');
   const [logDate, setLogDate] = useState(new Date().toISOString().split('T')[0]);
   const [reflection, setReflection] = useState('');
@@ -208,18 +209,21 @@ export default function App() {
     signOut(auth);
   };
 
-  // Prayer Log Submission
+  // Prayer Log Submission (Exact Hours & Minutes computation)
   const handleLogSubmit = async (e) => {
     e.preventDefault();
     setLogError('');
     setLogSuccess('');
 
-    const hrs = parseFloat(durationHours);
-    if (isNaN(hrs) || hrs < 0.5) {
+    const hrs = parseInt(logHours, 10) || 0;
+    const mins = parseInt(logMinutes, 10) || 0;
+    const totalHours = hrs + (mins / 60);
+
+    if (totalHours < 0.5) {
       setLogError('Minimum prayer time required is 30 minutes (0.5 hours).');
       return;
     }
-    if (hrs > 3.0) {
+    if (totalHours > 3.0) {
       setLogError('Maximum allowed single entry is 3 hours.');
       return;
     }
@@ -231,7 +235,8 @@ export default function App() {
       const newEntry = {
         userId: user.uid,
         userName: displayName,
-        duration: hrs,
+        duration: Number(totalHours.toFixed(2)),
+        displayDuration: `${hrs}h ${mins}m`,
         category: prayerCategory,
         date: logDate,
         reflection: reflection.trim(),
@@ -241,9 +246,10 @@ export default function App() {
       await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'prayerLogs'), newEntry);
       await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'prayerLogs'), newEntry);
 
-      setLogSuccess(`Successfully recorded ${hrs} hour(s) of prayer!`);
+      setLogSuccess(`Successfully recorded ${hrs}h ${mins}m of prayer!`);
       setReflection('');
-      setDurationHours(1.0);
+      setLogHours(1);
+      setLogMinutes(0);
       setPrayerCategory('Personal Prayer');
 
       setTimeout(() => {
@@ -764,7 +770,7 @@ export default function App() {
                         </div>
 
                         <div className="text-right shrink-0">
-                          <span className="font-bold text-amber-400">{log.duration} hrs</span>
+                          <span className="font-bold text-amber-400">{log.displayDuration || `${log.duration} hrs`}</span>
                           <span className="block text-[10px] text-slate-500">{log.date}</span>
                         </div>
                       </div>
@@ -826,7 +832,7 @@ export default function App() {
                 </div>
                 <p>• Minimum entry: <strong>30 minutes (0.5 hrs)</strong></p>
                 <p>• Maximum entry: <strong>3 hours (3.0 hrs)</strong> per log</p>
-                <p>• Password resets sent directly to user email.</p>
+                <p>• Custom hours and minutes inputs supported.</p>
               </div>
 
             </div>
@@ -834,7 +840,7 @@ export default function App() {
           </div>
         )}
 
-        {/* --- VIEW 2: PRAYER HOURS LOGGING FORM WITH CATEGORIES --- */}
+        {/* --- VIEW 2: PRAYER HOURS LOGGING FORM (CUSTOM HOURS & MINUTES) --- */}
         {activeTab === 'log' && (
           <div className="max-w-xl mx-auto">
             <div className={`p-8 rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800 shadow-xl' : 'bg-white border-slate-200 shadow-md'}`}>
@@ -845,7 +851,7 @@ export default function App() {
                 </div>
                 <div>
                   <h2 className="text-xl font-bold">Record Prayer Mileage</h2>
-                  <p className="text-xs text-slate-400">Log your devoted hours, category, and reflection.</p>
+                  <p className="text-xs text-slate-400">Specify your exact hours and minutes of devotion.</p>
                 </div>
               </div>
 
@@ -865,19 +871,34 @@ export default function App() {
 
               <form onSubmit={handleLogSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">Prayer Duration (Hours)</label>
-                  <select
-                    value={durationHours}
-                    onChange={(e) => setDurationHours(parseFloat(e.target.value))}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-sm outline-none transition"
-                  >
-                    <option value={0.5}>30 Minutes (0.5 hrs)</option>
-                    <option value={1.0}>1 Hour (1.0 hr)</option>
-                    <option value={1.5}>1.5 Hours (1.5 hrs)</option>
-                    <option value={2.0}>2 Hours (2.0 hrs)</option>
-                    <option value={2.5}>2.5 Hours (2.5 hrs)</option>
-                    <option value={3.0}>3 Hours (3.0 hrs - Max)</option>
-                  </select>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Prayer Duration (Exact Time)</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <span className="block text-[10px] text-slate-500 mb-1">Hours (0 - 3)</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="3"
+                        value={logHours}
+                        onChange={(e) => setLogHours(parseInt(e.target.value, 10) || 0)}
+                        className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-sm outline-none transition"
+                      />
+                    </div>
+                    <div>
+                      <span className="block text-[10px] text-slate-500 mb-1">Minutes (0 - 59)</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="59"
+                        value={logMinutes}
+                        onChange={(e) => setLogMinutes(parseInt(e.target.value, 10) || 0)}
+                        className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-sm outline-none transition"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-amber-400/80 mt-1">
+                    Total: {logHours} hr(s) {logMinutes} min(s)
+                  </p>
                 </div>
 
                 <div>
@@ -912,7 +933,7 @@ export default function App() {
                     value={reflection}
                     onChange={(e) => setReflection(e.target.value)}
                     placeholder="What scriptures or burdens did you carry in prayer today?"
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm outline-none transition resize-none"
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-sm outline-none transition resize-none"
                   ></textarea>
                 </div>
 
@@ -995,7 +1016,7 @@ export default function App() {
                 >
                   <div className="flex items-start gap-3.5">
                     <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0 font-bold text-xs mt-0.5">
-                      {log.duration}h
+                      {log.displayDuration || `${log.duration}h`}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
