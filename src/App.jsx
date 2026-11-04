@@ -200,7 +200,7 @@ export default function App() {
       } else {
         setAuthError('Failed to send reset email. Please try again.');
       }
-    } finally {
+    } fontally {
       setIsSendingReset(false);
     }
   };
@@ -310,8 +310,8 @@ export default function App() {
     };
   }, [userLogs]);
 
-  // Aggregate Leaderboards
-  const leaderboards = useMemo(() => {
+  // Aggregate Leaderboards & Global Community Stats
+  const { leaderboards, totalSubscribers } = useMemo(() => {
     const todayStr = new Date().toISOString().split('T')[0];
     const now = new Date();
     
@@ -327,12 +327,21 @@ export default function App() {
     const mapDaily = {};
     const mapWeekly = {};
     const map30Days = {};
+    const subscriberSet = new Set();
+
+    if (user?.uid) {
+      subscriberSet.add(user.uid);
+    }
 
     communityLogs.forEach(log => {
       const logDateObj = new Date(log.date);
       const hrs = Number(log.duration) || 0;
       const uid = log.userId || 'anon';
       const uName = log.userName || 'Prayer Warrior';
+
+      if (uid && uid !== 'anon') {
+        subscriberSet.add(uid);
+      }
 
       if (!mapAllTime[uid]) mapAllTime[uid] = { id: uid, name: uName, hours: 0, avatar: '🔥' };
       mapAllTime[uid].hours += hrs;
@@ -354,12 +363,15 @@ export default function App() {
     });
 
     return {
-      alltime: Object.values(mapAllTime).sort((a, b) => b.hours - a.hours).slice(0, 10),
-      daily: Object.values(mapDaily).sort((a, b) => b.hours - a.hours).slice(0, 10),
-      weekly: Object.values(mapWeekly).sort((a, b) => b.hours - a.hours).slice(0, 10),
-      '30days': Object.values(map30Days).sort((a, b) => b.hours - a.hours).slice(0, 10),
+      leaderboards: {
+        alltime: Object.values(mapAllTime).sort((a, b) => b.hours - a.hours).slice(0, 10),
+        daily: Object.values(mapDaily).sort((a, b) => b.hours - a.hours).slice(0, 10),
+        weekly: Object.values(mapWeekly).sort((a, b) => b.hours - a.hours).slice(0, 10),
+        '30days': Object.values(map30Days).sort((a, b) => b.hours - a.hours).slice(0, 10),
+      },
+      totalSubscribers: subscriberSet.size
     };
-  }, [communityLogs]);
+  }, [communityLogs, user]);
 
   if (authLoading) {
     return (
@@ -626,417 +638,461 @@ export default function App() {
 
         {/* --- VIEW 1: DASHBOARD & LEADERBOARDS --- */}
         {activeTab === 'dashboard' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="space-y-6">
             
-            <div className="lg:col-span-2 space-y-6">
+            {/* Top Stat Overview Grid (Includes Subscribers) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className={`p-5 rounded-2xl border ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-400">Total Subscribers</span>
+                  <div className="w-8 h-8 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center">
+                    <Users className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <span className="text-2xl font-extrabold text-purple-400">{totalSubscribers}</span>
+                  <span className="text-xs text-slate-400 ml-1.5 font-medium">warriors</span>
+                </div>
+              </div>
+
+              <div className={`p-5 rounded-2xl border ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-400">Today's Mileage</span>
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
+                    <Flame className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <span className="text-2xl font-extrabold text-amber-400">{userStats.todayHours.toFixed(1)}</span>
+                  <span className="text-xs text-slate-400 ml-1.5 font-medium">hrs logged</span>
+                </div>
+              </div>
+
+              <div className={`p-5 rounded-2xl border ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-400">30-Day Cumulative</span>
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                    <TrendingUp className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <span className="text-2xl font-extrabold text-emerald-400">{userStats.total30DayHours.toFixed(1)}</span>
+                  <span className="text-xs text-slate-400 ml-1.5 font-medium">/ 60 hrs target</span>
+                </div>
+              </div>
+
+              <div className={`p-5 rounded-2xl border ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-400">Goal Progress</span>
+                  <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center">
+                    <CheckCircle2 className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <span className="text-2xl font-extrabold text-blue-400">{userStats.progressPercent}%</span>
+                  <span className="text-xs text-slate-400 ml-1.5 font-medium">completed</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               
-              <div className={`p-6 rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                  <div>
-                    <h2 className="text-xl font-bold flex items-center gap-2">
-                      <Trophy className="w-5 h-5 text-amber-400" />
-                      Top 10 Prayer Warriors
-                    </h2>
-                    <p className="text-xs text-slate-400 mt-1">
-                      Recognizing dedicated prayer mileage rankings across all members.
-                    </p>
+              <div className="lg:col-span-2 space-y-6">
+                
+                <div className={`p-6 rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <div>
+                      <h2 className="text-xl font-bold flex items-center gap-2">
+                        <Trophy className="w-5 h-5 text-amber-400" />
+                        Top 10 Prayer Warriors
+                      </h2>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Recognizing dedicated prayer mileage rankings across all members.
+                      </p>
+                    </div>
+
+                    <div className="flex bg-slate-800/60 p-1 rounded-xl self-start sm:self-auto border border-slate-700/50 flex-wrap gap-1">
+                      <button
+                        onClick={() => setLeaderboardTab('alltime')}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${leaderboardTab === 'alltime' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'}`}
+                      >
+                        All Total
+                      </button>
+                      <button
+                        onClick={() => setLeaderboardTab('daily')}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${leaderboardTab === 'daily' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'}`}
+                      >
+                        Daily
+                      </button>
+                      <button
+                        onClick={() => setLeaderboardTab('weekly')}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${leaderboardTab === 'weekly' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'}`}
+                      >
+                        Weekly
+                      </button>
+                      <button
+                        onClick={() => setLeaderboardTab('30days')}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${leaderboardTab === '30days' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'}`}
+                      >
+                        30-Day
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="flex bg-slate-800/60 p-1 rounded-xl self-start sm:self-auto border border-slate-700/50 flex-wrap gap-1">
-                    <button
-                      onClick={() => setLeaderboardTab('alltime')}
-                      className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${leaderboardTab === 'alltime' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'}`}
-                    >
-                      All Total
-                    </button>
-                    <button
-                      onClick={() => setLeaderboardTab('daily')}
-                      className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${leaderboardTab === 'daily' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'}`}
-                    >
-                      Daily
-                    </button>
-                    <button
-                      onClick={() => setLeaderboardTab('weekly')}
-                      className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${leaderboardTab === 'weekly' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'}`}
-                    >
-                      Weekly
-                    </button>
-                    <button
-                      onClick={() => setLeaderboardTab('30days')}
-                      className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${leaderboardTab === '30days' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'}`}
-                    >
-                      30-Day
-                    </button>
+                  <div className="space-y-3">
+                    {leaderboards[leaderboardTab].length === 0 ? (
+                      <div className="p-8 text-center text-xs text-slate-500">
+                        No active records found for this period yet. Switch to "All Total" to view total member mileage!
+                      </div>
+                    ) : (
+                      leaderboards[leaderboardTab].map((item, index) => {
+                        const rank = index + 1;
+                        const isCurrentUser = item.id === user.uid;
+
+                        return (
+                          <div
+                            key={item.id}
+                            className={`flex items-center justify-between p-3.5 rounded-2xl border transition ${
+                              isCurrentUser
+                                ? 'bg-amber-500/10 border-amber-500/40'
+                                : rank === 1 
+                                ? 'bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-amber-500/30' 
+                                : rank === 2 
+                                ? 'bg-slate-800/40 border-slate-700/40' 
+                                : rank === 3 
+                                ? 'bg-amber-900/10 border-amber-800/20' 
+                                : darkMode ? 'bg-slate-950/40 border-slate-800/60' : 'bg-slate-50 border-slate-200'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs shrink-0">
+                                {rank === 1 && <Medal className="w-6 h-6 text-amber-400" />}
+                                {rank === 2 && <Medal className="w-6 h-6 text-slate-300" />}
+                                {rank === 3 && <Medal className="w-6 h-6 text-amber-700" />}
+                                {rank > 3 && <span className="text-slate-400">#{rank}</span>}
+                              </div>
+
+                              <div className="flex items-center gap-2.5">
+                                <span className="text-lg">{item.avatar}</span>
+                                <div>
+                                  <span className="text-sm font-semibold block leading-tight flex items-center gap-1.5">
+                                    {item.name}
+                                    {isCurrentUser && (
+                                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">You</span>
+                                    )}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400">
+                                    {leaderboardTab === 'alltime' ? 'All-Time Total' : leaderboardTab === 'daily' ? 'Today' : leaderboardTab === 'weekly' ? 'This Week' : '30-Day Cumulative'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="text-right">
+                              <span className="text-sm font-extrabold text-amber-400">
+                                {item.hours.toFixed(1)} <span className="text-xs font-normal text-slate-400">hrs</span>
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  {leaderboards[leaderboardTab].length === 0 ? (
-                    <div className="p-8 text-center text-xs text-slate-500">
-                      No active records found for this period yet. Switch to "All Total" to view total member mileage!
-                    </div>
-                  ) : (
-                    leaderboards[leaderboardTab].map((item, index) => {
-                      const rank = index + 1;
-                      const isCurrentUser = item.id === user.uid;
+                <div className={`p-6 rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
+                  <h3 className="text-sm font-bold flex items-center gap-2 mb-4">
+                    <Users className="w-4 h-4 text-purple-400" />
+                    Live Community Activity Feed
+                  </h3>
 
-                      return (
+                  {communityLogs.length === 0 ? (
+                    <p className="text-xs text-slate-500 text-center py-4">No community logs recorded yet.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {communityLogs.slice(0, 5).map((log) => (
                         <div
-                          key={item.id}
-                          className={`flex items-center justify-between p-3.5 rounded-2xl border transition ${
-                            isCurrentUser
-                              ? 'bg-amber-500/10 border-amber-500/40'
-                              : rank === 1 
-                              ? 'bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-amber-500/30' 
-                              : rank === 2 
-                              ? 'bg-slate-800/40 border-slate-700/40' 
-                              : rank === 3 
-                              ? 'bg-amber-900/10 border-amber-800/20' 
+                          key={log.id}
+                          className={`p-3.5 rounded-2xl border flex items-center justify-between text-xs transition ${
+                            log.userId === user.uid
+                              ? 'bg-amber-500/5 border-amber-500/20'
                               : darkMode ? 'bg-slate-950/40 border-slate-800/60' : 'bg-slate-50 border-slate-200'
                           }`}
                         >
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs shrink-0">
-                              {rank === 1 && <Medal className="w-6 h-6 text-amber-400" />}
-                              {rank === 2 && <Medal className="w-6 h-6 text-slate-300" />}
-                              {rank === 3 && <Medal className="w-6 h-6 text-amber-700" />}
-                              {rank > 3 && <span className="text-slate-400">#{rank}</span>}
+                            <div className="w-7 h-7 rounded-full bg-purple-500/20 border border-purple-500/30 text-purple-300 flex items-center justify-center font-bold text-[10px]">
+                              {log.userName ? log.userName.charAt(0).toUpperCase() : 'W'}
                             </div>
-
-                            <div className="flex items-center gap-2.5">
-                              <span className="text-lg">{item.avatar}</span>
-                              <div>
-                                <span className="text-sm font-semibold block leading-tight flex items-center gap-1.5">
-                                  {item.name}
-                                  {isCurrentUser && (
-                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">You</span>
-                                  )}
-                                </span>
-                                <span className="text-[10px] text-slate-400">
-                                  {leaderboardTab === 'alltime' ? 'All-Time Total' : leaderboardTab === 'daily' ? 'Today' : leaderboardTab === 'weekly' ? 'This Week' : '30-Day Cumulative'}
-                                </span>
-                              </div>
+                            <div>
+                              <span className="font-semibold block text-slate-200">{log.userName || 'Prayer Warrior'}</span>
+                              <span className="text-[10px] text-slate-400">{log.category} • {log.date}</span>
                             </div>
                           </div>
 
                           <div className="text-right">
-                            <span className="text-sm font-extrabold text-amber-400">
-                              {item.hours.toFixed(1)} <span className="text-xs font-normal text-slate-400">hrs</span>
-                            </span>
+                            <span className="font-bold text-amber-400">{log.displayDuration || `${log.duration} hrs`}</span>
                           </div>
                         </div>
-                      );
-                    })
+                      ))}
+                    </div>
                   )}
                 </div>
+
               </div>
 
-              <div className={`p-6 rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
-                <h3 className="text-sm font-bold flex items-center gap-2 mb-4">
-                  <Users className="w-4 h-4 text-purple-400" />
-                  Live Community Activity Feed
-                </h3>
+              {/* Personal Quick Stats Panel */}
+              <div className="space-y-6">
+                <div className={`p-6 rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
+                  <h3 className="text-sm font-bold flex items-center gap-2 mb-4">
+                    <ShieldCheck className="w-4 h-4 text-amber-400" />
+                    Personal Overview
+                  </h3>
 
-                {communityLogs.length === 0 ? (
-                  <p className="text-xs text-slate-500 text-center py-4">No community logs recorded yet.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {communityLogs.slice(0, 5).map((log) => (
-                      <div
-                        key={log.id}
-                        className={`p-3.5 rounded-2xl border flex items-center justify-between text-xs transition ${
-                          log.userId === user.uid
-                            ? 'bg-amber-500/5 border-amber-500/20'
-                            : darkMode ? 'bg-slate-950/40 border-slate-800/60' : 'bg-slate-50 border-slate-200'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-purple-500/20 text-purple-300 flex items-center justify-center font-bold text-xs shrink-0">
-                            {log.userName ? log.userName.charAt(0).toUpperCase() : 'U'}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-slate-200">{log.userName || 'Devotee'}</span>
-                              {log.category && (
-                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                                  {log.category}
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-[11px] text-slate-400 mt-0.5 italic">
-                              "{log.reflection || 'Logged prayer session'}"
-                            </p>
-                          </div>
-                        </div>
+                  <div className="space-y-4">
+                    <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20">
+                      <div className="text-xs text-amber-300 font-semibold mb-1">Today's Progress</div>
+                      <div className="text-2xl font-black text-amber-400">{userStats.todayHours.toFixed(1)} <span className="text-xs font-normal">hrs</span></div>
+                    </div>
 
-                        <div className="text-right shrink-0">
-                          <span className="font-bold text-amber-400">{log.displayDuration || `${log.duration} hrs`}</span>
-                          <span className="block text-[10px] text-slate-500">{log.date}</span>
-                        </div>
-                      </div>
-                    ))}
+                    <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/20">
+                      <div className="text-xs text-purple-300 font-semibold mb-1">This Week's Mileage</div>
+                      <div className="text-2xl font-black text-purple-400">{userStats.weekHours.toFixed(1)} <span className="text-xs font-normal">hrs</span></div>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-slate-800/40 border border-slate-700/50">
+                      <div className="text-xs text-slate-400 font-semibold mb-1">Total Entries Logged</div>
+                      <div className="text-xl font-bold text-slate-200">{userStats.totalEntries} sessions</div>
+                    </div>
                   </div>
-                )}
+
+                  <button
+                    onClick={() => setActiveTab('log')}
+                    className="w-full mt-5 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/20 hover:from-amber-400 hover:to-amber-500 transition flex items-center justify-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Log New Session Now
+                  </button>
+                </div>
               </div>
 
             </div>
-
-            <div className="space-y-6">
-              
-              <div className={`p-6 rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4 flex items-center gap-2">
-                  <Sun className="w-4 h-4 text-amber-400" />
-                  Your Devotion Today
-                </h3>
-                
-                <div className="flex items-baseline gap-2 mb-2">
-                  <span className="text-4xl font-extrabold bg-gradient-to-r from-amber-300 to-amber-500 bg-clip-text text-transparent">
-                    {userStats.todayHours.toFixed(1)}
-                  </span>
-                  <span className="text-sm text-slate-400 font-semibold">/ 3.0 max hrs</span>
-                </div>
-
-                <div className="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden mb-4">
-                  <div 
-                    className="bg-gradient-to-r from-amber-500 to-purple-500 h-2.5 rounded-full transition-all duration-500"
-                    style={{ width: `${Math.min(100, (userStats.todayHours / 3.0) * 100)}%` }}
-                  ></div>
-                </div>
-
-                <button
-                  onClick={() => setActiveTab('log')}
-                  className="w-full py-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-bold flex items-center justify-center gap-2 transition"
-                >
-                  <Plus className="w-4 h-4" />
-                  Log Today's Prayer Session
-                </button>
-              </div>
-
-              <div className={`p-6 rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-purple-400" />
-                  Weekly Mileage
-                </h3>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-extrabold text-purple-400">
-                    {userStats.weekHours.toFixed(1)}
-                  </span>
-                  <span className="text-xs text-slate-400">hours accumulated</span>
-                </div>
-              </div>
-
-              <div className={`p-5 rounded-2xl border ${darkMode ? 'bg-slate-950/60 border-slate-800/80 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-600'} text-xs space-y-2`}>
-                <div className="font-semibold text-amber-400 flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4" />
-                  Mileage Validation Guidelines
-                </div>
-                <p>• Minimum entry: <strong>30 minutes (0.5 hrs)</strong></p>
-                <p>• Maximum entry: <strong>3 hours (3.0 hrs)</strong> per log</p>
-                <p>• Custom hours and minutes inputs supported.</p>
-              </div>
-
-            </div>
-
           </div>
         )}
 
-        {/* --- VIEW 2: PRAYER HOURS LOGGING FORM (CUSTOM HOURS & MINUTES) --- */}
+        {/* --- VIEW 2: LOG PRAYER HOURS FORM --- */}
         {activeTab === 'log' && (
           <div className="max-w-xl mx-auto">
-            <div className={`p-8 rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800 shadow-xl' : 'bg-white border-slate-200 shadow-md'}`}>
+            <div className={`p-8 rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800 shadow-2xl' : 'bg-white border-slate-200 shadow-xl'}`}>
               
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400">
-                  <Clock className="w-6 h-6" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold">Record Prayer Mileage</h2>
-                  <p className="text-xs text-slate-400">Specify your exact hours and minutes of devotion.</p>
-                </div>
+              <div className="mb-6">
+                <h2 className="text-xl font-bold flex items-center gap-2 text-amber-400">
+                  <Plus className="w-5 h-5" />
+                  Record Prayer Mileage
+                </h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  Log your daily devotion (min 30 mins, max 3 hrs per single log).
+                </p>
               </div>
 
               {logError && (
-                <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
+                <div className="mb-4 p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
                   <Info className="w-4 h-4 shrink-0" />
                   <span>{logError}</span>
                 </div>
               )}
 
               {logSuccess && (
-                <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs flex items-center gap-2">
+                <div className="mb-4 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 shrink-0" />
                   <span>{logSuccess}</span>
                 </div>
               )}
 
-              <form onSubmit={handleLogSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">Prayer Duration (Exact Time)</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <span className="block text-[10px] text-slate-500 mb-1">Hours (0 - 3)</span>
-                      <input
-                        type="number"
-                        min="0"
-                        max="3"
-                        value={logHours}
-                        onChange={(e) => setLogHours(parseInt(e.target.value, 10) || 0)}
-                        className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-sm outline-none transition"
-                      />
-                    </div>
-                    <div>
-                      <span className="block text-[10px] text-slate-500 mb-1">Minutes (0 - 59)</span>
-                      <input
-                        type="number"
-                        min="0"
-                        max="59"
-                        value={logMinutes}
-                        onChange={(e) => setLogMinutes(parseInt(e.target.value, 10) || 0)}
-                        className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-sm outline-none transition"
-                      />
-                    </div>
+              <form onSubmit={handleLogSubmit} className="space-y-5">
+                
+                {/* Duration Inputs: Hours & Minutes */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">Hours</label>
+                    <select
+                      value={logHours}
+                      onChange={(e) => setLogHours(Number(e.target.value))}
+                      className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm outline-none focus:border-amber-500"
+                    >
+                      <option value={0}>0 Hours</option>
+                      <option value={1}>1 Hour</option>
+                      <option value={2}>2 Hours</option>
+                      <option value={3}>3 Hours</option>
+                    </select>
                   </div>
-                  <p className="text-[11px] text-amber-400/80 mt-1">
-                    Total: {logHours} hr(s) {logMinutes} min(s)
-                  </p>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">Minutes</label>
+                    <select
+                      value={logMinutes}
+                      onChange={(e) => setLogMinutes(Number(e.target.value))}
+                      className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm outline-none focus:border-amber-500"
+                    >
+                      <option value={0}>0 Mins</option>
+                      <option value={15}>15 Mins</option>
+                      <option value={30}>30 Mins</option>
+                      <option value={45}>45 Mins</option>
+                    </select>
+                  </div>
                 </div>
 
+                {/* Category Selection */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">Prayer Category</label>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Prayer Focus Category</label>
                   <select
                     value={prayerCategory}
                     onChange={(e) => setPrayerCategory(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-sm outline-none transition"
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm outline-none focus:border-amber-500"
                   >
-                    <option value="Revival & spiritual Awakening">Revival & spiritual Awakening</option>
-                    <option value="Healing & Deliverance">Healing & Deliverance</option>
-                    <option value="Families">Families</option>
-                    <option value="Personal Prayer">Personal Prayer</option>
+                    <option value="Personal Prayer">Personal Prayer & Thanksgiving</option>
+                    <option value="Intercession">Intercession for Others</option>
+                    <option value="Night Watch">Night Watch & Vigil</option>
+                    <option value="Scripture Meditations">Scripture & Word Meditation</option>
+                    <option value="Church & Ministry">Church & Ministry Growth</option>
                   </select>
                 </div>
 
+                {/* Date Input */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">Date</label>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Date Logged</label>
                   <input
                     type="date"
                     required
                     value={logDate}
                     onChange={(e) => setLogDate(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-sm outline-none transition"
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm outline-none focus:border-amber-500"
                   />
                 </div>
 
+                {/* Optional Reflection */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">Reflection / Notes (Optional)</label>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Spiritual Journal / Notes (Optional)</label>
                   <textarea
                     rows={3}
                     value={reflection}
                     onChange={(e) => setReflection(e.target.value)}
-                    placeholder="What scriptures or burdens did you carry in prayer today?"
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-sm outline-none transition resize-none"
-                  ></textarea>
+                    placeholder="Record insights, scripture verses, or revelations during your prayer..."
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm outline-none focus:border-amber-500 resize-none"
+                  />
                 </div>
 
                 <button
                   type="submit"
                   disabled={isSubmittingLog}
-                  className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/25 transition disabled:opacity-50"
+                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/25 transition disabled:opacity-50"
                 >
-                  {isSubmittingLog ? 'Recording Mileage...' : 'Submit Prayer Hours'}
+                  {isSubmittingLog ? 'Recording Session...' : 'Submit Prayer Entry'}
                 </button>
               </form>
+
             </div>
           </div>
         )}
 
-        {/* --- VIEW 3: 30-DAY MILEAGE CHALLENGE STATUS --- */}
+        {/* --- VIEW 3: 30-DAY MILEAGE STATUS --- */}
         {activeTab === 'challenge' && (
-          <div className={`max-w-xl mx-auto p-8 rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800 shadow-xl' : 'bg-white border-slate-200 shadow-md'}`}>
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 rounded-2xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400">
-                <TrendingUp className="w-6 h-6" />
+          <div className="max-w-2xl mx-auto space-y-6">
+            <div className={`p-8 rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
+              
+              <div className="text-center mb-6">
+                <span className="text-xs font-bold px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                  30-Day Spiritual Challenge
+                </span>
+                <h2 className="text-2xl font-black mt-2">60-Hour Prayer Goal</h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  Target: Maintain average 2 hours daily over rolling 30-day windows.
+                </p>
               </div>
-              <div>
-                <h2 className="text-xl font-bold">30-Day Spiritual Endurance</h2>
-                <p className="text-xs text-slate-400">Your cumulative progress toward the 60-hour goal.</p>
-              </div>
-            </div>
 
-            <div className="space-y-6">
-              <div className="p-5 rounded-2xl bg-slate-950/50 border border-slate-800/80">
-                <div className="flex justify-between text-sm mb-2 font-semibold">
-                  <span>Total Accumulated</span>
+              {/* Progress Bar */}
+              <div className="space-y-2 mb-6">
+                <div className="flex justify-between text-xs font-bold">
+                  <span className="text-slate-400">Current Accumulated</span>
                   <span className="text-amber-400">{userStats.total30DayHours.toFixed(1)} / {userStats.goal30Day} hrs</span>
                 </div>
-                <div className="w-full bg-slate-800 rounded-full h-3 overflow-hidden">
+                <div className="w-full h-4 rounded-full bg-slate-950 border border-slate-800 overflow-hidden p-0.5">
                   <div
-                    className="bg-gradient-to-r from-amber-500 to-purple-500 h-3 rounded-full transition-all duration-500"
+                    className="h-full rounded-full bg-gradient-to-r from-amber-500 via-amber-400 to-purple-500 transition-all duration-500"
                     style={{ width: `${userStats.progressPercent}%` }}
-                  ></div>
+                  />
                 </div>
-                <p className="text-[11px] text-slate-400 mt-2 text-right">{userStats.progressPercent}% of target achieved</p>
+                <div className="text-right text-[11px] text-slate-500 font-semibold">
+                  {userStats.progressPercent}% Goal Achieved
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 rounded-2xl bg-slate-950/40 border border-slate-800/80 text-center">
-                  <span className="block text-2xl font-bold text-amber-400">{userStats.totalEntries}</span>
-                  <span className="text-xs text-slate-400">Total Sessions Logged</span>
+              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-800/60">
+                <div className="text-center p-3 rounded-2xl bg-slate-950/40">
+                  <span className="text-[11px] text-slate-400 block font-medium">Hours Remaining</span>
+                  <span className="text-xl font-black text-amber-400">
+                    {Math.max(0, userStats.goal30Day - userStats.total30DayHours).toFixed(1)} hrs
+                  </span>
                 </div>
-                <div className="p-4 rounded-2xl bg-slate-950/40 border border-slate-800/80 text-center">
-                  <span className="block text-2xl font-bold text-purple-400">{(userStats.total30DayHours / (userStats.totalEntries || 1)).toFixed(1)} hrs</span>
-                  <span className="text-xs text-slate-400">Avg. Per Session</span>
+                <div className="text-center p-3 rounded-2xl bg-slate-950/40">
+                  <span className="text-[11px] text-slate-400 block font-medium">Daily Avg Target</span>
+                  <span className="text-xl font-black text-purple-400">2.0 hrs/day</span>
                 </div>
               </div>
+
             </div>
           </div>
         )}
 
-        {/* --- VIEW 4: MY PRAYER LOG HISTORY --- */}
+        {/* --- VIEW 4: MY PRAYER LOGS --- */}
         {activeTab === 'history' && (
           <div className="max-w-3xl mx-auto space-y-4">
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-xl font-bold flex items-center gap-2">
+              <h2 className="text-lg font-bold flex items-center gap-2">
                 <Clock className="w-5 h-5 text-amber-400" />
-                Your Prayer Log History
+                Personal Prayer Log History
               </h2>
-              <span className="text-xs text-slate-400">{userLogs.length} total records</span>
+              <span className="text-xs text-slate-400">{userLogs.length} Total Sessions</span>
             </div>
 
             {userLogs.length === 0 ? (
               <div className={`p-12 text-center rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200'}`}>
-                <BookOpen className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                <p className="text-sm font-semibold text-slate-300">No prayer sessions logged yet.</p>
-                <p className="text-xs text-slate-500 mt-1">Click "Log Prayer Hours" above to record your first session.</p>
+                <BookOpen className="w-10 h-10 text-slate-600 mx-auto mb-3" />
+                <p className="text-sm text-slate-400 font-medium">No prayer logs recorded yet.</p>
+                <button
+                  onClick={() => setActiveTab('log')}
+                  className="mt-4 px-4 py-2 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs"
+                >
+                  Log Your First Session
+                </button>
               </div>
             ) : (
-              userLogs.map((log) => (
-                <div
-                  key={log.id}
-                  className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}
-                >
-                  <div className="flex items-start gap-3.5">
-                    <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0 font-bold text-xs mt-0.5">
-                      {log.displayDuration || `${log.duration}h`}
+              <div className="space-y-3">
+                {userLogs.map((log) => (
+                  <div
+                    key={log.id}
+                    className={`p-5 rounded-2xl border transition ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
+                        {log.category || 'Personal Prayer'}
+                      </span>
+                      <span className="text-xs text-slate-400 font-medium">{log.date}</span>
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-amber-400">{log.date}</span>
-                        {log.category && (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 font-semibold">
-                            {log.category}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm text-slate-300 mt-1 italic">
-                        "{log.reflection || 'No reflection provided.'}"
+
+                    <div className="flex items-baseline justify-between mt-2">
+                      <span className="text-lg font-black text-white">
+                        {log.displayDuration || `${log.duration} hrs`}
+                      </span>
+                    </div>
+
+                    {log.reflection && (
+                      <p className="mt-3 text-xs text-slate-300 bg-slate-950/60 p-3 rounded-xl border border-slate-800 italic">
+                        "{log.reflection}"
                       </p>
-                    </div>
+                    )}
                   </div>
-                  <div className="text-right text-xs text-slate-500 shrink-0 self-end sm:self-center">
-                    {new Date(log.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </div>
-                </div>
-              ))
+                ))}
+              </div>
             )}
           </div>
         )}
