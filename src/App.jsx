@@ -73,7 +73,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard'); 
   const [leaderboardTab, setLeaderboardTab] = useState('alltime');
 
-  // Logging Form State (Custom Hours & Minutes)
+  // Logging Form State (Custom Hours & Minutes Side-by-Side)
   const [logHours, setLogHours] = useState(1);
   const [logMinutes, setLogMinutes] = useState(0);
   const [prayerCategory, setPrayerCategory] = useState('Personal Prayer');
@@ -209,7 +209,7 @@ export default function App() {
     signOut(auth);
   };
 
-  // Prayer Log Submission (Exact Hours & Minutes computation)
+  // Prayer Log Submission (Enforcing min 30 mins [0.5h] and max 3 hours)
   const handleLogSubmit = async (e) => {
     e.preventDefault();
     setLogError('');
@@ -220,11 +220,11 @@ export default function App() {
     const totalHours = hrs + (mins / 60);
 
     if (totalHours < 0.5) {
-      setLogError('Minimum prayer time required is 30 minutes (0.5 hours).');
+      setLogError('Minimum prayer time required is 30 minutes.');
       return;
     }
     if (totalHours > 3.0) {
-      setLogError('Maximum allowed single entry is 3 hours.');
+      setLogError('Maximum allowed daily prayer time is 3 hours.');
       return;
     }
 
@@ -543,7 +543,7 @@ export default function App() {
           </div>
           
           <div className="mt-6 text-center text-xs text-slate-500">
-            Daily logs: min 30 minutes (0.5 hrs) • max 3 hours per entry.
+            Daily logs: min 30 minutes • max 3 hours per entry.
           </div>
         </div>
       </div>
@@ -636,11 +636,116 @@ export default function App() {
           </button>
         </div>
 
-        {/* --- VIEW 1: DASHBOARD & LEADERBOARDS --- */}
+        {/* --- VIEW: LOG PRAYER HOURS --- */}
+        {activeTab === 'log' && (
+          <div className={`max-w-2xl mx-auto p-8 rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800 shadow-xl' : 'bg-white border-slate-200 shadow-md'}`}>
+            <div className="mb-6">
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <Clock className="w-5 h-5 text-amber-400" />
+                Log Prayer Session
+              </h2>
+              <p className="text-xs text-slate-400 mt-1">
+                Record your dedicated prayer time. Minimum 30 minutes, maximum 3 hours daily.
+              </p>
+            </div>
+
+            {logError && (
+              <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
+                <Info className="w-4 h-4 shrink-0" />
+                <span>{logError}</span>
+              </div>
+            )}
+
+            {logSuccess && (
+              <div className="mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>{logSuccess}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleLogSubmit} className="space-y-5">
+              {/* Hour and Minute Dropdowns side by side */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Hours</label>
+                  <select
+                    value={logHours}
+                    onChange={(e) => setLogHours(Number(e.target.value))}
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-sm outline-none transition"
+                  >
+                    <option value={0}>0 Hours</option>
+                    <option value={1}>1 Hour</option>
+                    <option value={2}>2 Hours</option>
+                    <option value={3}>3 Hours</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Minutes</label>
+                  <select
+                    value={logMinutes}
+                    onChange={(e) => setLogMinutes(Number(e.target.value))}
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-sm outline-none transition"
+                  >
+                    <option value={0}>0 Minutes</option>
+                    <option value={30}>30 Minutes</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Prayer Category</label>
+                  <select
+                    value={prayerCategory}
+                    onChange={(e) => setPrayerCategory(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-sm outline-none transition"
+                  >
+                    <option value="Personal Prayer">Personal Prayer</option>
+                    <option value="Intercession">Intercession</option>
+                    <option value="Word & Study">Word & Study</option>
+                    <option value="Tarrying & Worship">Tarrying & Worship</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Date</label>
+                  <input
+                    type="date"
+                    value={logDate}
+                    onChange={(e) => setLogDate(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-sm outline-none transition"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1">Prayer Reflection / Notes (Optional)</label>
+                <textarea
+                  rows={3}
+                  value={reflection}
+                  onChange={(e) => setReflection(e.target.value)}
+                  placeholder="What did the Lord lay on your heart during this session?"
+                  className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-sm outline-none transition resize-none"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isSubmittingLog}
+                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/25 transition disabled:opacity-50"
+              >
+                {isSubmittingLog ? 'Recording Session...' : '+ Submit Prayer Log'}
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* --- VIEW: DASHBOARD & LEADERBOARDS --- */}
         {activeTab === 'dashboard' && (
           <div className="space-y-6">
             
-            {/* Top Stat Overview Grid (Includes Subscribers) */}
+            {/* Top Stat Overview Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className={`p-5 rounded-2xl border ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
                 <div className="flex items-center justify-between">
@@ -695,357 +800,94 @@ export default function App() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              
-              <div className="lg:col-span-2 space-y-6">
-                
-                <div className={`p-6 rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                    <div>
-                      <h2 className="text-xl font-bold flex items-center gap-2">
-                        <Trophy className="w-5 h-5 text-amber-400" />
-                        Top 10 Prayer Warriors
-                      </h2>
-                      <p className="text-xs text-slate-400 mt-1">
-                        Recognizing dedicated prayer mileage rankings across all members.
-                      </p>
-                    </div>
-
-                    <div className="flex bg-slate-800/60 p-1 rounded-xl self-start sm:self-auto border border-slate-700/50 flex-wrap gap-1">
-                      <button
-                        onClick={() => setLeaderboardTab('alltime')}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${leaderboardTab === 'alltime' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'}`}
-                      >
-                        All Total
-                      </button>
-                      <button
-                        onClick={() => setLeaderboardTab('daily')}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${leaderboardTab === 'daily' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'}`}
-                      >
-                        Daily
-                      </button>
-                      <button
-                        onClick={() => setLeaderboardTab('weekly')}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${leaderboardTab === 'weekly' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'}`}
-                      >
-                        Weekly
-                      </button>
-                      <button
-                        onClick={() => setLeaderboardTab('30days')}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${leaderboardTab === '30days' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'}`}
-                      >
-                        30-Day
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    {leaderboards[leaderboardTab].length === 0 ? (
-                      <div className="p-8 text-center text-xs text-slate-500">
-                        No active records found for this period yet. Switch to "All Total" to view total member mileage!
-                      </div>
-                    ) : (
-                      leaderboards[leaderboardTab].map((item, index) => {
-                        const rank = index + 1;
-                        const isCurrentUser = item.id === user.uid;
-
-                        return (
-                          <div 
-                            key={item.id} 
-                            className={`flex items-center justify-between p-3.5 rounded-2xl border transition ${isCurrentUser ? (darkMode ? 'bg-amber-500/10 border-amber-500/40' : 'bg-amber-50 border-amber-300') : (darkMode ? 'bg-slate-950/40 border-slate-800/80 hover:border-slate-700' : 'bg-slate-50 border-slate-200')}`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs ${rank === 1 ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/30' : rank === 2 ? 'bg-slate-300 text-slate-950' : rank === 3 ? 'bg-amber-700 text-white' : darkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700'}`}>
-                                {rank}
-                              </div>
-                              <div>
-                                <h4 className="text-xs font-bold flex items-center gap-1.5">
-                                  <span>{item.name}</span>
-                                  {isCurrentUser && (
-                                    <span className="px-1.5 py-0.5 rounded text-[9px] bg-amber-500/20 text-amber-400 font-semibold">You</span>
-                                  )}
-                                </h4>
-                                <p className="text-[10px] text-slate-400">Prayer Warrior</p>
-                              </div>
-                            </div>
-
-                            <div className="text-right">
-                              <span className="text-sm font-extrabold text-amber-400">{item.hours.toFixed(1)}</span>
-                              <span className="text-[10px] text-slate-400 ml-1">hrs</span>
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-
-              </div>
-
-              {/* Sidebar Quick Card */}
-              <div className="space-y-6">
-                <div className={`p-6 rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
-                  <h3 className="text-sm font-bold flex items-center gap-2 mb-3">
-                    <Sparkles className="w-4 h-4 text-amber-400" />
-                    Sanctuary Guidelines
-                  </h3>
-                  <ul className="space-y-2 text-xs text-slate-400 leading-relaxed">
-                    <li className="flex items-start gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1.5 shrink-0" />
-                      <span>Log your personal prayer time daily with accurate hours and minutes.</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1.5 shrink-0" />
-                      <span>Each entry must be at least 30 minutes and maximum 3 hours.</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1.5 shrink-0" />
-                      <span>Aim for the 60-hour target over the 30-day spiritual endurance cycle.</span>
-                    </li>
-                  </ul>
-
-                  <button
-                    onClick={() => setActiveTab('log')}
-                    className="w-full mt-5 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/20 transition flex items-center justify-center gap-2"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Log New Prayer Hours
-                  </button>
-                </div>
-              </div>
-
-            </div>
-
-          </div>
-        )}
-
-        {/* --- VIEW 2: LOG PRAYER HOURS FORM (Prominently featuring Total Subscribers right here) --- */}
-        {activeTab === 'log' && (
-          <div className="max-w-2xl mx-auto space-y-6">
-            
-            {/* Subscriber Badge Callout closer to Prayer Log */}
-            <div className={`p-4 rounded-2xl border flex items-center justify-between ${darkMode ? 'bg-gradient-to-r from-purple-950/40 to-slate-900 border-purple-500/30' : 'bg-gradient-to-r from-purple-50 to-white border-purple-200 shadow-sm'}`}>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/40 text-purple-400 flex items-center justify-center">
-                  <Users className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-xs font-semibold text-slate-400">Global Community Status</h3>
-                  <p className="text-sm font-bold text-slate-200">
-                    <span className="text-purple-400 font-extrabold text-base mr-1">{totalSubscribers}</span> Active Subscribers in Sanctuary
-                  </p>
-                </div>
-              </div>
-              <span className="hidden sm:inline-block px-3 py-1 rounded-xl bg-purple-500/10 text-purple-300 text-xs font-semibold border border-purple-500/20">
-                Praying Together
-              </span>
-            </div>
-
-            <div className={`p-8 rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800 shadow-xl' : 'bg-white border-slate-200 shadow-lg'}`}>
-              <div className="mb-6">
-                <h2 className="text-xl font-bold flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-amber-400" />
-                  Log Prayer Session
-                </h2>
-                <p className="text-xs text-slate-400 mt-1">
-                  Record your dedicated prayer time and add your reflections.
-                </p>
-              </div>
-
-              {logError && (
-                <div className="mb-6 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
-                  <Info className="w-4 h-4 shrink-0" />
-                  <span>{logError}</span>
-                </div>
-              )}
-
-              {logSuccess && (
-                <div className="mb-6 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 shrink-0" />
-                  <span>{logSuccess}</span>
-                </div>
-              )}
-
-              <form onSubmit={handleLogSubmit} className="space-y-5">
-                
-                {/* Duration Inputs: Hours and Minutes */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1">Hours</label>
-                    <select
-                      value={logHours}
-                      onChange={(e) => setLogHours(Number(e.target.value))}
-                      className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-sm outline-none transition"
-                    >
-                      <option value={0}>0 Hours</option>
-                      <option value={1}>1 Hour</option>
-                      <option value={2}>2 Hours</option>
-                      <option value={3}>3 Hours</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1">Minutes</label>
-                    <select
-                      value={logMinutes}
-                      onChange={(e) => setLogMinutes(Number(e.target.value))}
-                      className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-sm outline-none transition"
-                    >
-                      <option value={0}>0 Minutes</option>
-                      <option value={15}>15 Minutes</option>
-                      <option value={30}>30 Minutes</option>
-                      <option value={45}>45 Minutes</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Category & Date */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1">Prayer Category</label>
-                    <select
-                      value={prayerCategory}
-                      onChange={(e) => setPrayerCategory(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-sm outline-none transition"
-                    >
-                      <option value="Personal Prayer">Personal Prayer</option>
-                      <option value="Intercession">Intercession</option>
-                      <option value="Worship & Thanksgiving">Worship & Thanksgiving</option>
-                      <option value="Word & Study">Word & Study</option>
-                      <option value="Night Vigil">Night Vigil</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1">Date</label>
-                    <input
-                      type="date"
-                      value={logDate}
-                      onChange={(e) => setLogDate(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-sm outline-none transition"
-                    />
-                  </div>
-                </div>
-
-                {/* Reflection */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">Prayer Reflection / Notes (Optional)</label>
-                  <textarea
-                    rows={3}
-                    value={reflection}
-                    onChange={(e) => setReflection(e.target.value)}
-                    placeholder="What did the Lord lay on your heart during this session?"
-                    className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-sm outline-none transition resize-none"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isSubmittingLog}
-                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/25 transition disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  {isSubmittingLog ? 'Recording Session...' : 'Submit Prayer Log'}
-                </button>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* --- VIEW 3: 30-DAY MILEAGE STATUS --- */}
-        {activeTab === 'challenge' && (
-          <div className="max-w-3xl mx-auto space-y-6">
-            <div className={`p-8 rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
+            {/* Leaderboard Table Section */}
+            <div className={`p-6 rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <div>
                   <h2 className="text-xl font-bold flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5 text-amber-400" />
-                    30-Day Spiritual Mileage Status
+                    <Trophy className="w-5 h-5 text-amber-400" />
+                    Top Prayer Warriors
                   </h2>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Track your personal progress toward the 60-hour goal.
-                  </p>
+                  <p className="text-xs text-slate-400 mt-1">Recognizing dedicated prayer mileage rankings across all members.</p>
                 </div>
-                <div className="px-3 py-1 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold">
-                  {userStats.total30DayHours.toFixed(1)} / 60 hrs
+
+                <div className="flex bg-slate-800/60 p-1 rounded-xl self-start sm:self-auto border border-slate-700/50 flex-wrap gap-1">
+                  <button onClick={() => setLeaderboardTab('alltime')} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${leaderboardTab === 'alltime' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'}`}>All Total</button>
+                  <button onClick={() => setLeaderboardTab('daily')} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${leaderboardTab === 'daily' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'}`}>Daily</button>
+                  <button onClick={() => setLeaderboardTab('weekly')} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${leaderboardTab === 'weekly' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'}`}>Weekly</button>
+                  <button onClick={() => setLeaderboardTab('30days')} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${leaderboardTab === '30days' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'}`}>30-Day</button>
                 </div>
               </div>
 
-              {/* Progress Bar */}
-              <div className="space-y-2 mb-8">
-                <div className="flex justify-between text-xs font-semibold">
-                  <span className="text-slate-400">Progress</span>
-                  <span className="text-amber-400">{userStats.progressPercent}% Completed</span>
-                </div>
-                <div className="w-full h-4 rounded-full bg-slate-950 border border-slate-800 overflow-hidden p-0.5">
-                  <div 
-                    className="h-full rounded-full bg-gradient-to-r from-amber-500 to-emerald-400 transition-all duration-500"
-                    style={{ width: `${userStats.progressPercent}%` }}
-                  />
-                </div>
+              <div className="space-y-3">
+                {leaderboards[leaderboardTab].length === 0 ? (
+                  <div className="p-8 text-center text-xs text-slate-500">
+                    No active records found for this period yet. Switch to "All Total" to view total member mileage!
+                  </div>
+                ) : (
+                  leaderboards[leaderboardTab].map((item, index) => {
+                    const rank = index + 1;
+                    return (
+                      <div key={item.id} className={`flex items-center justify-between p-3.5 rounded-2xl border ${item.id === user.uid ? 'border-amber-500/50 bg-amber-500/5' : darkMode ? 'border-slate-800 bg-slate-950/40' : 'border-slate-100 bg-slate-50'}`}>
+                        <div className="flex items-center gap-3">
+                          <span className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs font-bold ${rank === 1 ? 'bg-amber-500 text-slate-950' : rank === 2 ? 'bg-slate-300 text-slate-950' : rank === 3 ? 'bg-amber-700 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                            {rank}
+                          </span>
+                          <span className="text-xs font-semibold">{item.name}</span>
+                        </div>
+                        <span className="text-xs font-bold text-amber-400">{item.hours.toFixed(1)} hrs</span>
+                      </div>
+                    );
+                  })
+                )}
               </div>
+            </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="p-4 rounded-2xl bg-slate-950/50 border border-slate-800">
-                  <span className="text-xs text-slate-400 font-semibold">Today's Total</span>
-                  <p className="text-xl font-extrabold text-amber-400 mt-1">{userStats.todayHours.toFixed(1)} hrs</p>
-                </div>
-                <div className="p-4 rounded-2xl bg-slate-950/50 border border-slate-800">
-                  <span className="text-xs text-slate-400 font-semibold">This Week</span>
-                  <p className="text-xl font-extrabold text-emerald-400 mt-1">{userStats.weekHours.toFixed(1)} hrs</p>
-                </div>
-                <div className="p-4 rounded-2xl bg-slate-950/50 border border-slate-800">
-                  <span className="text-xs text-slate-400 font-semibold">Total Entries</span>
-                  <p className="text-xl font-extrabold text-purple-400 mt-1">{userStats.totalEntries} sessions</p>
-                </div>
+          </div>
+        )}
+
+        {/* --- VIEW: 30-DAY MILEAGE STATUS --- */}
+        {activeTab === 'challenge' && (
+          <div className={`p-8 rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'} max-w-3xl mx-auto`}>
+            <h2 className="text-xl font-bold flex items-center gap-2 mb-2">
+              <TrendingUp className="w-5 h-5 text-emerald-400" />
+              30-Day Spiritual Endurance Status
+            </h2>
+            <p className="text-xs text-slate-400 mb-6">Target: 60 cumulative hours across 30 days.</p>
+            
+            <div className="space-y-4">
+              <div className="flex justify-between text-xs font-semibold">
+                <span>Progress: {userStats.total30DayHours.toFixed(1)} hrs</span>
+                <span>{userStats.progressPercent}%</span>
+              </div>
+              <div className="w-full bg-slate-800 h-3 rounded-full overflow-hidden">
+                <div className="bg-gradient-to-r from-amber-500 to-emerald-400 h-full transition-all duration-500" style={{ width: `${userStats.progressPercent}%` }}></div>
               </div>
             </div>
           </div>
         )}
 
-        {/* --- VIEW 4: MY PRAYER LOGS HISTORY --- */}
+        {/* --- VIEW: MY PRAYER LOGS --- */}
         {activeTab === 'history' && (
-          <div className="max-w-3xl mx-auto space-y-6">
-            <div className={`p-6 rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
-              <div className="mb-6">
-                <h2 className="text-xl font-bold flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-amber-400" />
-                  My Prayer Logs History
-                </h2>
-                <p className="text-xs text-slate-400 mt-1">
-                  Review all your past prayer entries and reflections.
-                </p>
-              </div>
-
+          <div className={`p-6 rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'} max-w-3xl mx-auto`}>
+            <h2 className="text-xl font-bold flex items-center gap-2 mb-4">
+              <Clock className="w-5 h-5 text-amber-400" />
+              My Prayer Logs
+            </h2>
+            <div className="space-y-3">
               {userLogs.length === 0 ? (
-                <div className="p-12 text-center text-xs text-slate-500">
-                  You haven't logged any prayer sessions yet. Go to "Log Prayer Hours" to record your first session!
-                </div>
+                <p className="text-xs text-slate-500 py-6 text-center">You haven't logged any prayer sessions yet.</p>
               ) : (
-                <div className="space-y-3">
-                  {userLogs.map((log) => (
-                    <div 
-                      key={log.id}
-                      className={`p-4 rounded-2xl border ${darkMode ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-50 border-slate-200'}`}
-                    >
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold">
-                            {log.displayDuration || `${log.duration} hrs`}
-                          </span>
-                          <span className="text-xs font-semibold text-slate-300">{log.category}</span>
-                        </div>
-                        <span className="text-xs text-slate-500">{log.date}</span>
-                      </div>
-
-                      {log.reflection && (
-                        <p className="text-xs text-slate-400 mt-2 italic bg-slate-900/40 p-2.5 rounded-xl border border-slate-800/50">
-                          "{log.reflection}"
-                        </p>
-                      )}
+                userLogs.map((log) => (
+                  <div key={log.id} className={`p-4 rounded-2xl border ${darkMode ? 'border-slate-800 bg-slate-950/50' : 'border-slate-200 bg-slate-50'}`}>
+                    <div className="flex justify-between items-center text-xs font-semibold mb-1">
+                      <span className="text-amber-400">{log.category}</span>
+                      <span className="text-slate-400">{log.date}</span>
                     </div>
-                  ))}
-                </div>
+                    <div className="text-sm font-bold">{log.displayDuration}</div>
+                    {log.reflection && <p className="text-xs text-slate-300 mt-2 italic">"{log.reflection}"</p>}
+                  </div>
+                ))
               )}
             </div>
           </div>
