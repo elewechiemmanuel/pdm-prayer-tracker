@@ -737,8 +737,9 @@ export default function App() {
                     >
                       <option value="Personal Prayer">Personal Prayer</option>
                       <option value="Intercession">Intercession</option>
-                      <option value="Word & Study">Word & Study</option>
-                      <option value="Tarrying & Worship">Tarrying & Worship</option>
+                      <option value="Healing & Deliverance">Healing & Deliverance</option>
+                      <option value="Missions & Evangelism">Missions & Evangelism </option>
+                      <option value="Families">Families</option>
                     </select>
                   </div>
 
