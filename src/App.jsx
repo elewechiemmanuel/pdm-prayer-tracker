@@ -73,7 +73,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard'); 
   const [leaderboardTab, setLeaderboardTab] = useState('alltime');
 
-  // Logging Form State (Custom Hours & Minutes Side-by-Side)
+  // Logging Form State (Exact Hours & Minutes Numeric Inputs)
   const [logHours, setLogHours] = useState(1);
   const [logMinutes, setLogMinutes] = useState(0);
   const [prayerCategory, setPrayerCategory] = useState('Personal Prayer');
@@ -209,15 +209,21 @@ export default function App() {
     signOut(auth);
   };
 
-  // Prayer Log Submission (Enforcing min 30 mins [0.5h] and max 3 hours)
+  // Prayer Log Submission (Enforcing min 30 mins [0.5h] and max 3 hours with custom exact time)
   const handleLogSubmit = async (e) => {
     e.preventDefault();
     setLogError('');
     setLogSuccess('');
 
-    const hrs = parseInt(logHours, 10) || 0;
-    const mins = parseInt(logMinutes, 10) || 0;
+    const hrs = Math.max(0, Math.min(3, parseInt(logHours, 10) || 0));
+    const mins = Math.max(0, Math.min(59, parseInt(logMinutes, 10) || 0));
     const totalHours = hrs + (mins / 60);
+
+    // Enforce 3 hours max limit strictly (e.g. if hrs = 3 and mins > 0)
+    if (hrs === 3 && mins > 0) {
+      setLogError('Maximum allowed daily prayer time is 3 hours.');
+      return;
+    }
 
     if (totalHours < 0.5) {
       setLogError('Minimum prayer time required is 30 minutes.');
@@ -636,108 +642,138 @@ export default function App() {
           </button>
         </div>
 
-        {/* --- VIEW: LOG PRAYER HOURS --- */}
+        {/* --- VIEW: LOG PRAYER HOURS (Includes Sanctuary Guidelines Card & Side-by-Side Inputs) --- */}
         {activeTab === 'log' && (
-          <div className={`max-w-2xl mx-auto p-8 rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800 shadow-xl' : 'bg-white border-slate-200 shadow-md'}`}>
-            <div className="mb-6">
-              <h2 className="text-xl font-bold flex items-center gap-2">
-                <Clock className="w-5 h-5 text-amber-400" />
-                Log Prayer Session
-              </h2>
-              <p className="text-xs text-slate-400 mt-1">
-                Record your dedicated prayer time. Minimum 30 minutes, maximum 3 hours daily.
-              </p>
+          <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            {/* Sanctuary Guidelines Card */}
+            <div className={`p-6 rounded-3xl border h-fit ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-md'}`}>
+              <div className="flex items-center gap-2 mb-4 text-amber-400 font-bold text-sm">
+                <Sparkles className="w-4 h-4" />
+                <span>Sanctuary Guidelines</span>
+              </div>
+              <ul className="space-y-3 text-xs text-slate-400">
+                <li className="flex items-start gap-2">
+                  <span className="text-amber-400 font-bold">•</span>
+                  <span>Log your personal prayer time daily with accurate hours and minutes.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-amber-400 font-bold">•</span>
+                  <span>Each entry must be at least 30 minutes and maximum 3 hours.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-amber-400 font-bold">•</span>
+                  <span>Aim for the 60-hour target over the 30-day spiritual endurance cycle.</span>
+                </li>
+              </ul>
             </div>
 
-            {logError && (
-              <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
-                <Info className="w-4 h-4 shrink-0" />
-                <span>{logError}</span>
+            {/* Main Recording Form */}
+            <div className={`md:col-span-2 p-8 rounded-3xl border ${darkMode ? 'bg-slate-900/90 border-slate-800 shadow-xl' : 'bg-white border-slate-200 shadow-md'}`}>
+              <div className="mb-6">
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-amber-400" />
+                  Record Prayer Mileage
+                </h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  Specify your exact hours and minutes of devotion. Minimum 30 minutes, maximum 3 hours daily.
+                </p>
               </div>
-            )}
 
-            {logSuccess && (
-              <div className="mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 shrink-0" />
-                <span>{logSuccess}</span>
-              </div>
-            )}
+              {logError && (
+                <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
+                  <Info className="w-4 h-4 shrink-0" />
+                  <span>{logError}</span>
+                </div>
+              )}
 
-            <form onSubmit={handleLogSubmit} className="space-y-5">
-              {/* Hour and Minute Dropdowns side by side */}
-              <div className="grid grid-cols-2 gap-4">
+              {logSuccess && (
+                <div className="mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>{logSuccess}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleLogSubmit} className="space-y-5">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">Hours</label>
-                  <select
-                    value={logHours}
-                    onChange={(e) => setLogHours(Number(e.target.value))}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-sm outline-none transition"
-                  >
-                    <option value={0}>0 Hours</option>
-                    <option value={1}>1 Hour</option>
-                    <option value={2}>2 Hours</option>
-                    <option value={3}>3 Hours</option>
-                  </select>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Prayer Duration (Exact Time)</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <span className="block text-[11px] text-slate-500 mb-1">Hours (0 - 3)</span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={3}
+                        value={logHours}
+                        onChange={(e) => setLogHours(e.target.value)}
+                        className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-sm outline-none transition text-white font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <span className="block text-[11px] text-slate-500 mb-1">Minutes (0 - 59)</span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={59}
+                        value={logMinutes}
+                        onChange={(e) => setLogMinutes(e.target.value)}
+                        className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-sm outline-none transition text-white font-bold"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-2 text-xs text-amber-400 font-medium">
+                    Total: {parseInt(logHours || 0)} hr(s) {parseInt(logMinutes || 0)} min(s)
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">Prayer Category</label>
+                    <select
+                      value={prayerCategory}
+                      onChange={(e) => setPrayerCategory(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-sm outline-none transition"
+                    >
+                      <option value="Personal Prayer">Personal Prayer</option>
+                      <option value="Intercession">Intercession</option>
+                      <option value="Word & Study">Word & Study</option>
+                      <option value="Tarrying & Worship">Tarrying & Worship</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">Date</label>
+                    <input
+                      type="date"
+                      value={logDate}
+                      onChange={(e) => setLogDate(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-sm outline-none transition"
+                    />
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">Minutes</label>
-                  <select
-                    value={logMinutes}
-                    onChange={(e) => setLogMinutes(Number(e.target.value))}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-sm outline-none transition"
-                  >
-                    <option value={0}>0 Minutes</option>
-                    <option value={30}>30 Minutes</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">Prayer Category</label>
-                  <select
-                    value={prayerCategory}
-                    onChange={(e) => setPrayerCategory(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-sm outline-none transition"
-                  >
-                    <option value="Personal Prayer">Personal Prayer</option>
-                    <option value="Intercession">Intercession</option>
-                    <option value="Word & Study">Word & Study</option>
-                    <option value="Tarrying & Worship">Tarrying & Worship</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">Date</label>
-                  <input
-                    type="date"
-                    value={logDate}
-                    onChange={(e) => setLogDate(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-sm outline-none transition"
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Reflection / Notes (Optional)</label>
+                  <textarea
+                    rows={3}
+                    value={reflection}
+                    onChange={(e) => setReflection(e.target.value)}
+                    placeholder="What scriptures or burdens did you carry in prayer today?"
+                    className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-sm outline-none transition resize-none"
                   />
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1">Prayer Reflection / Notes (Optional)</label>
-                <textarea
-                  rows={3}
-                  value={reflection}
-                  onChange={(e) => setReflection(e.target.value)}
-                  placeholder="What did the Lord lay on your heart during this session?"
-                  className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-sm outline-none transition resize-none"
-                />
-              </div>
+                <button
+                  type="submit"
+                  disabled={isSubmittingLog}
+                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/25 transition disabled:opacity-50"
+                >
+                  {isSubmittingLog ? 'Recording Session...' : '+ Submit Prayer Log'}
+                </button>
+              </form>
+            </div>
 
-              <button
-                type="submit"
-                disabled={isSubmittingLog}
-                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/25 transition disabled:opacity-50"
-              >
-                {isSubmittingLog ? 'Recording Session...' : '+ Submit Prayer Log'}
-              </button>
-            </form>
           </div>
         )}
 
